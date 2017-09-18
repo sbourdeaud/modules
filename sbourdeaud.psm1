@@ -125,8 +125,8 @@ function Get-PrismRESTCall
                 $RESTFullError = Get-RESTError
 			    if ($RESTFullError -match '(?<= ] )(.+)(?=" minorErrorCode)') {
 				    $Error = $matches[0]
-				    OutputLogData -category "ERROR" -message "$Error"
-			    } else {OutputLogData -category "ERROR" -message "$RESTFullError"}
+				    Write-LogOutput -category "ERROR" -message "$Error"
+			    } else {Write-LogOutput -category "ERROR" -message "$RESTFullError"}
 			    Exit
 		    }
         } else {
@@ -138,8 +138,8 @@ function Get-PrismRESTCall
                 $RESTFullError = Get-RESTError
 			    if ($RESTFullError -match '(?<= ] )(.+)(?=" minorErrorCode)') {
 				    $Error = $matches[0]
-				    OutputLogData -category "ERROR" -message "$Error"
-			    } else {OutputLogData -category "ERROR" -message "$RESTFullError"}
+				    Write-LogOutput -category "ERROR" -message "$Error"
+			    } else {Write-LogOutput -category "ERROR" -message "$RESTFullError"}
 			    Exit
 		    }
         }

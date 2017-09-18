@@ -68,7 +68,7 @@ https://github.com/sbourdeaud
 }#end function Write-LogOutput
 
 #this function is used to connect to Prism REST API
-Function Get-PrismRESTCall
+function Get-PrismRESTCall
 {
 	#input: username, password, url, method, body
 	#output: REST response

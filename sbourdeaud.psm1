@@ -115,9 +115,9 @@ Function Get-PrismRESTCall
     process
     {
         if ($body) {
+            $myvarHeader += @{"Accept"="application/json"}
+		    $myvarHeader += @{"Content-Type"="application/json"}
             try {
-                $myvarHeader += @{"Accept"="application/json"}
-		        $myvarHeader += @{"Content-Type"="application/json"}
 			    $myvarRESTOutput = Invoke-RestMethod -Method $method -Uri $url -Headers $myvarHeader -Body $body -ErrorAction Stop
 		    }
 		    catch {
@@ -130,6 +130,11 @@ Function Get-PrismRESTCall
 		    }
 		    catch {
 			    Write-LogOutput -category "ERROR" -message "$($_.Exception.Message)"
+                $RESTFullError = Get-RESTError
+			    if ($RESTFullError -match '(?<= ] )(.+)(?=" minorErrorCode)') {
+				    $Error = $matches[0]
+				    OutputLogData -category "ERROR" -message "$Error"
+			    } else {OutputLogData -category "ERROR" -message "$RESTFullError"}
 			    Exit
 		    }
         }
@@ -140,5 +145,18 @@ Function Get-PrismRESTCall
         return $myvarRESTOutput
     }
 }#end function Get-PrismRESTCall
+
+#function Get-RESTError
+function Get-RESTError {
+$global:helpme = $body
+$global:helpmoref = $moref
+$global:result = $_.Exception.Response.GetResponseStream()
+$global:reader = New-Object System.IO.StreamReader($global:result)
+$global:responseBody = $global:reader.ReadToEnd();
+
+return $global:responsebody
+
+break
+}#end function Get-RESTError
 
 #endregion

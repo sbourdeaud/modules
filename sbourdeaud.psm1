@@ -122,6 +122,11 @@ function Get-PrismRESTCall
 		    }
 		    catch {
 			    Write-LogOutput -category "ERROR" -message "$($_.Exception.Message)"
+                $RESTFullError = Get-RESTError
+			    if ($RESTFullError -match '(?<= ] )(.+)(?=" minorErrorCode)') {
+				    $Error = $matches[0]
+				    OutputLogData -category "ERROR" -message "$Error"
+			    } else {OutputLogData -category "ERROR" -message "$RESTFullError"}
 			    Exit
 		    }
         } else {

@@ -121,7 +121,7 @@ Function Get-PrismRESTCall
 			    $myvarRESTOutput = Invoke-RestMethod -Method $method -Uri $url -Headers $myvarHeader -Body $body -ErrorAction Stop
 		    }
 		    catch {
-			    OutputLogData -category "ERROR" -message "$($_.Exception.Message)"
+			    Write-LogOutput -category "ERROR" -message "$($_.Exception.Message)"
 			    Exit
 		    }
         } else {
@@ -129,7 +129,7 @@ Function Get-PrismRESTCall
 			    $myvarRESTOutput = Invoke-RestMethod -Method $method -Uri $url -Headers $myvarHeader -ErrorAction Stop
 		    }
 		    catch {
-			    OutputLogData -category "ERROR" -message "$($_.Exception.Message)"
+			    Write-LogOutput -category "ERROR" -message "$($_.Exception.Message)"
 			    Exit
 		    }
         }

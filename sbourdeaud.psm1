@@ -90,10 +90,19 @@ Function Get-PrismRESTCall
 #>
 	param
 	(
-		[string] $username,
-		[string] $password,
-        [string] $url,
-        [string] $method,
+		[string] 
+        $username,
+		
+        [string] 
+        $password,
+        
+        [string] 
+        $url,
+        
+        [string] 
+        [ValidateSet('GET','PATCH','PUT','POST','DELETE')]
+        $method,
+        
         $body
 	)
 

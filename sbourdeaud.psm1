@@ -122,11 +122,14 @@ function Get-PrismRESTCall
 		    }
 		    catch {
 			    Write-LogOutput -category "ERROR" -message "$($_.Exception.Message)"
-                $RESTFullError = Get-RESTError
-			    if ($RESTFullError -match '(?<= ] )(.+)(?=" minorErrorCode)') {
-				    $Error = $matches[0]
-				    Write-LogOutput -category "ERROR" -message "$Error"
-			    } else {Write-LogOutput -category "ERROR" -message "$RESTFullError"}
+                try {
+                    $RESTError = Get-RESTError -ErrorAction Stop
+                    $RESTErrorMessage = ($RESTError | ConvertFrom-Json).Message
+                    if ($RESTErrorMessage) {Write-LogOutput -category "ERROR" -message "$RESTErrorMessage"}
+                }
+                catch {
+                    Write-LogOutput -category "ERROR" -message "Could not retrieve full REST error details."
+                }
 			    Exit
 		    }
         } else {
@@ -135,11 +138,14 @@ function Get-PrismRESTCall
 		    }
 		    catch {
 			    Write-LogOutput -category "ERROR" -message "$($_.Exception.Message)"
-                $RESTFullError = Get-RESTError
-			    if ($RESTFullError -match '(?<= ] )(.+)(?=" minorErrorCode)') {
-				    $Error = $matches[0]
-				    Write-LogOutput -category "ERROR" -message "$Error"
-			    } else {Write-LogOutput -category "ERROR" -message "$RESTFullError"}
+                try {
+                    $RESTError = Get-RESTError -ErrorAction Stop
+                    $RESTErrorMessage = ($RESTError | ConvertFrom-Json).Message
+                    if ($RESTErrorMessage) {Write-LogOutput -category "ERROR" -message "$RESTErrorMessage"}
+                }
+                catch {
+                    Write-LogOutput -category "ERROR" -message "Could not retrieve full REST error details."
+                }
 			    Exit
 		    }
         }

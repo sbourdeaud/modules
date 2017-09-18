@@ -67,4 +67,69 @@ https://github.com/sbourdeaud
 
 }#end function Write-LogOutput
 
+#this function is used to connect to Prism REST API
+Function Get-PrismRESTCall
+{
+	#input: username, password, url, method, body
+	#output: REST response
+<#
+.SYNOPSIS
+  Connects to Nutanix Prism REST API.
+.DESCRIPTION
+  This function is used to connect to Prism REST API.
+.NOTES
+  Author: Stephane Bourdeaud
+.PARAMETER username
+  Specifies the Prism username.
+.PARAMETER password
+  Specifies the Prism password.
+.PARAMETER url
+  Specifies the Prism url.
+.EXAMPLE
+  PS> PrismRESTCall -username admin -password admin -url https://10.10.10.10:9440/PrismGateway/services/rest/v1/ 
+#>
+	param
+	(
+		[string] $username,
+		[string] $password,
+        [string] $url,
+        [string] $method,
+        $body
+	)
+
+    begin
+    {
+	 	#Setup authentication header for REST call
+        $myvarHeader = @{"Authorization" = "Basic "+[System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($username+":"+$password ))}   
+    }
+
+    process
+    {
+        if ($body) {
+            try {
+                $myvarHeader += @{"Accept"="application/json"}
+		        $myvarHeader += @{"Content-Type"="application/json"}
+			    $myvarRESTOutput = Invoke-RestMethod -Method $method -Uri $url -Headers $myvarHeader -Body $body -ErrorAction Stop
+		    }
+		    catch {
+			    OutputLogData -category "ERROR" -message "$($_.Exception.Message)"
+			    Exit
+		    }
+        } else {
+            try {
+			    $myvarRESTOutput = Invoke-RestMethod -Method $method -Uri $url -Headers $myvarHeader -ErrorAction Stop
+		    }
+		    catch {
+			    OutputLogData -category "ERROR" -message "$($_.Exception.Message)"
+			    Exit
+		    }
+        }
+    }
+
+    end
+    {
+        return $myvarRESTOutput
+    }
+}#end function Get-PrismRESTCall
+
 #endregion

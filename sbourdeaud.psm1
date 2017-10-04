@@ -108,6 +108,21 @@ function Get-PrismRESTCall
 
     begin
     {
+        if (!$IsLinux) {
+            add-type @"
+using System.Net;
+using System.Security.Cryptography.X509Certificates;
+public class TrustAllCertsPolicy : ICertificatePolicy {
+public bool CheckValidationResult(
+    ServicePoint srvPoint, X509Certificate certificate,
+    WebRequest request, int certificateProblem) {
+        return true;
+    }
+}
+"@
+            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+        }#endif not Linux
+
 	 	#Setup authentication header for REST call
         $myvarHeader = @{"Authorization" = "Basic "+[System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($username+":"+$password ))}   
     }
@@ -117,37 +132,74 @@ function Get-PrismRESTCall
         if ($body) {
             $myvarHeader += @{"Accept"="application/json"}
 		    $myvarHeader += @{"Content-Type"="application/json"}
-            try {
-			    $myvarRESTOutput = Invoke-RestMethod -Method $method -Uri $url -Headers $myvarHeader -Body $body -ErrorAction Stop
-		    }
-		    catch {
-			    Write-LogOutput -category "ERROR" -message "$($_.Exception.Message)"
+            
+            if ($IsLinux) {
                 try {
-                    $RESTError = Get-RESTError -ErrorAction Stop
-                    $RESTErrorMessage = ($RESTError | ConvertFrom-Json).Message
-                    if ($RESTErrorMessage) {Write-LogOutput -category "ERROR" -message "$RESTErrorMessage"}
-                }
-                catch {
-                    Write-LogOutput -category "ERROR" -message "Could not retrieve full REST error details."
-                }
-			    Exit
-		    }
+			        $myvarRESTOutput = Invoke-RestMethod -Method $method -Uri $url -Headers $myvarHeader -Body $body -SkipCertificateCheck -ErrorAction Stop
+		        }
+		        catch {
+			        Write-LogOutput -category "ERROR" -message "$($_.Exception.Message)"
+                    try {
+                        $RESTError = Get-RESTError -ErrorAction Stop
+                        $RESTErrorMessage = ($RESTError | ConvertFrom-Json).Message
+                        if ($RESTErrorMessage) {Write-LogOutput -category "ERROR" -message "$RESTErrorMessage"}
+                    }
+                    catch {
+                        Write-LogOutput -category "ERROR" -message "Could not retrieve full REST error details."
+                    }
+			        Exit
+		        }
+            }else {
+                try {
+			        $myvarRESTOutput = Invoke-RestMethod -Method $method -Uri $url -Headers $myvarHeader -Body $body -ErrorAction Stop
+		        }
+		        catch {
+			        Write-LogOutput -category "ERROR" -message "$($_.Exception.Message)"
+                    try {
+                        $RESTError = Get-RESTError -ErrorAction Stop
+                        $RESTErrorMessage = ($RESTError | ConvertFrom-Json).Message
+                        if ($RESTErrorMessage) {Write-LogOutput -category "ERROR" -message "$RESTErrorMessage"}
+                    }
+                    catch {
+                        Write-LogOutput -category "ERROR" -message "Could not retrieve full REST error details."
+                    }
+			        Exit
+		        }
+            }
         } else {
-            try {
-			    $myvarRESTOutput = Invoke-RestMethod -Method $method -Uri $url -Headers $myvarHeader -ErrorAction Stop
-		    }
-		    catch {
-			    Write-LogOutput -category "ERROR" -message "$($_.Exception.Message)"
+            if ($IsLinux) {
                 try {
-                    $RESTError = Get-RESTError -ErrorAction Stop
-                    $RESTErrorMessage = ($RESTError | ConvertFrom-Json).Message
-                    if ($RESTErrorMessage) {Write-LogOutput -category "ERROR" -message "$RESTErrorMessage"}
-                }
-                catch {
-                    Write-LogOutput -category "ERROR" -message "Could not retrieve full REST error details."
-                }
-			    Exit
-		    }
+			        $myvarRESTOutput = Invoke-RestMethod -Method $method -Uri $url -Headers $myvarHeader -SkipCertificateCheck -ErrorAction Stop
+		        }
+		        catch {
+			        Write-LogOutput -category "ERROR" -message "$($_.Exception.Message)"
+                    try {
+                        $RESTError = Get-RESTError -ErrorAction Stop
+                        $RESTErrorMessage = ($RESTError | ConvertFrom-Json).Message
+                        if ($RESTErrorMessage) {Write-LogOutput -category "ERROR" -message "$RESTErrorMessage"}
+                    }
+                    catch {
+                        Write-LogOutput -category "ERROR" -message "Could not retrieve full REST error details."
+                    }
+			        Exit
+		        }
+            }else {
+                try {
+			        $myvarRESTOutput = Invoke-RestMethod -Method $method -Uri $url -Headers $myvarHeader -ErrorAction Stop
+		        }
+		        catch {
+			        Write-LogOutput -category "ERROR" -message "$($_.Exception.Message)"
+                    try {
+                        $RESTError = Get-RESTError -ErrorAction Stop
+                        $RESTErrorMessage = ($RESTError | ConvertFrom-Json).Message
+                        if ($RESTErrorMessage) {Write-LogOutput -category "ERROR" -message "$RESTErrorMessage"}
+                    }
+                    catch {
+                        Write-LogOutput -category "ERROR" -message "Could not retrieve full REST error details."
+                    }
+			        Exit
+		        }
+            }
         }
     }
 

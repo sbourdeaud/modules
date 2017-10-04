@@ -109,7 +109,50 @@ function Get-PrismRESTCall
     begin
     {
 	 	#Setup authentication header for REST call
-        $myvarHeader = @{"Authorization" = "Basic "+[System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($username+":"+$password ))}   
+        $myvarHeader = @{"Authorization" = "Basic "+[System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($username+":"+$password ))}
+        #Make sure we are using the module Tunable-SSL-Validator which is required to use -insecure with Invoke-RestMethod and avoid problems with self-signed certificates
+        if (!(Get-Module -Name TunableSSLValidator)) {
+            Write-Host "$(get-date) [INFO] Importing module 'TunableSSLValidator'..." -ForegroundColor Green
+            try
+            {
+                Import-Module -Name TunableSSLValidator -ErrorAction Stop
+                Write-Host "$(get-date) [SUCCESS] Imported module 'TunableSSLValidator'!" -ForegroundColor Cyan
+            }#end try
+            catch #we couldn't import the module, so let's download it
+            {
+                Write-Host "$(get-date) [INFO] Downloading module 'TunableSSLValidator' from github..." -ForegroundColor Green
+                if (!$IsLinux) {
+                    $ModulesPath = ($env:PsModulePath -split ";")[0]
+                    $MyModulePath = "$ModulesPath\TunableSSLValidator"
+                } else {
+                    $ModulesPath = "~/.local/share/powershell/Modules"
+                    $MyModulePath = "$ModulesPath/TunableSSLValidator"
+                }
+                New-Item -Type Container -Force -path $MyModulePath | out-null
+
+                if (!$IsLinux) {
+                    (New-Object net.webclient).DownloadString("https://raw.githubusercontent.com/Jaykul/Tunable-SSL-Validator/master/TunableSSLValidator.psm1") | Out-File "$MyModulePath\TunableSSLValidator.psm1" -ErrorAction Continue
+                    (New-Object net.webclient).DownloadString("https://raw.githubusercontent.com/Jaykul/Tunable-SSL-Validator/master/TunableSSLValidator.psd1") | Out-File "$MyModulePath\TunableSSLValidator.psd1" -ErrorAction Continue
+                    (New-Object net.webclient).DownloadString("https://raw.githubusercontent.com/Jaykul/Tunable-SSL-Validator/master/TunableValidator.cs") | Out-File "$MyModulePath\TunableValidator.cs" -ErrorAction Continue
+                } else {
+                    wget "https://raw.githubusercontent.com/Jaykul/Tunable-SSL-Validator/master/TunableSSLValidator.psm1" -O "$MyModulePath\TunableSSLValidator.psm1"
+                    wget "https://raw.githubusercontent.com/Jaykul/Tunable-SSL-Validator/master/TunableSSLValidator.psd1" -O "$MyModulePath\TunableSSLValidator.psd1"
+                    wget "https://raw.githubusercontent.com/Jaykul/Tunable-SSL-Validator/master/TunableValidator.cs" -O "$MyModulePath\TunableValidator.cs"
+                }
+
+                try
+                {
+                    Import-Module -Name TunableSSLValidator -ErrorAction Stop
+                    Write-Host "$(get-date) [SUCCESS] Imported module 'TunableSSLValidator'!" -ForegroundColor Cyan
+                }#end try
+                catch #we couldn't import the module
+                {
+                    Write-Host "$(get-date) [ERROR] Unable to import the module TunableSSLValidator : $($_.Exception.Message)" -ForegroundColor Red
+                    Write-Host "$(get-date) [WARNING] Please download and install from https://github.com/Jaykul/Tunable-SSL-Validator" -ForegroundColor Yellow
+                    Exit
+                }#end catch
+            }#end catch
+        }#endif module TunableSSLValidator   
     }
 
     process
@@ -118,7 +161,7 @@ function Get-PrismRESTCall
             $myvarHeader += @{"Accept"="application/json"}
 		    $myvarHeader += @{"Content-Type"="application/json"}
             try {
-			    $myvarRESTOutput = Invoke-RestMethod -Method $method -Uri $url -Headers $myvarHeader -Body $body -ErrorAction Stop
+			    $myvarRESTOutput = Invoke-RestMethod -Method $method -Uri $url -Headers $myvarHeader -Body $body -ErrorAction Stop -Insecure
 		    }
 		    catch {
 			    Write-LogOutput -category "ERROR" -message "$($_.Exception.Message)"
@@ -134,7 +177,7 @@ function Get-PrismRESTCall
 		    }
         } else {
             try {
-			    $myvarRESTOutput = Invoke-RestMethod -Method $method -Uri $url -Headers $myvarHeader -ErrorAction Stop
+			    $myvarRESTOutput = Invoke-RestMethod -Method $method -Uri $url -Headers $myvarHeader -ErrorAction Stop -Insecure
 		    }
 		    catch {
 			    Write-LogOutput -category "ERROR" -message "$($_.Exception.Message)"

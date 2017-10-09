@@ -109,7 +109,7 @@ function Get-PrismRESTCall
     begin
     {
         if (!$IsLinux) {
-            add-type @"
+            add-type -ErrorAction SilentlyContinue @"
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
 public class TrustAllCertsPolicy : ICertificatePolicy {
@@ -254,7 +254,7 @@ function Upload-FileToPrism
     begin
     {
         if (!$IsLinux) {
-            add-type @"
+            add-type -ErrorAction SilentlyContinue @"
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
 public class TrustAllCertsPolicy : ICertificatePolicy {

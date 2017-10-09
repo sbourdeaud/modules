@@ -108,21 +108,6 @@ function Get-PrismRESTCall
 
     begin
     {
-        if (!$IsLinux) {
-            add-type -ErrorAction SilentlyContinue @"
-using System.Net;
-using System.Security.Cryptography.X509Certificates;
-public class TrustAllCertsPolicy : ICertificatePolicy {
-public bool CheckValidationResult(
-    ServicePoint srvPoint, X509Certificate certificate,
-    WebRequest request, int certificateProblem) {
-        return true;
-    }
-}
-"@
-            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy -ErrorAction SilentlyContinue
-        }#endif not Linux
-
 	 	#Setup authentication header for REST call
         $myvarHeader = @{"Authorization" = "Basic "+[System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($username+":"+$password ))}   
     }
@@ -253,30 +238,15 @@ function Send-FileToPrism
 
     begin
     {
-        if (!$IsLinux) {
-            add-type -ErrorAction SilentlyContinue @"
-using System.Net;
-using System.Security.Cryptography.X509Certificates;
-public class TrustAllCertsPolicy : ICertificatePolicy {
-public bool CheckValidationResult(
-    ServicePoint srvPoint, X509Certificate certificate,
-    WebRequest request, int certificateProblem) {
-        return true;
-    }
-}
-"@
-            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy -ErrorAction SilentlyContinue
-        }#endif not Linux
-
 	 	#Setup authentication header for REST call
         $myvarHeader = @{"Authorization" = "Basic "+[System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($username+":"+$password ))}   
     }
 
     process
     {
-        $myvarHeader += @{"Accept"="*/*"}
+        $myvarHeader += @{"Accept"="application/json"}
 		$myvarHeader += @{"Content-Type"="application/octet-stream;charset=UTF-8"}
-        $myvarHeader += @{"X-Nutanix-Destination-Container"=$container_uuid}
+        #$myvarHeader += @{"X-Nutanix-Destination-Container"=$container_uuid}
             
         if ($IsLinux) {
             try {

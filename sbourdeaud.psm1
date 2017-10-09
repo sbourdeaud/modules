@@ -120,7 +120,7 @@ public bool CheckValidationResult(
     }
 }
 "@
-            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy -ErrorAction SilentlyContinue
         }#endif not Linux
 
 	 	#Setup authentication header for REST call
@@ -265,7 +265,7 @@ public bool CheckValidationResult(
     }
 }
 "@
-            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy -ErrorAction SilentlyContinue
         }#endif not Linux
 
 	 	#Setup authentication header for REST call

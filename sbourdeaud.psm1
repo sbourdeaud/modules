@@ -210,7 +210,7 @@ public bool CheckValidationResult(
 }#end function Get-PrismRESTCall
 
 #this function is used to upload a file to AHV Prism Image Configuration library
-function Upload-FileToPrism
+function Send-FileToPrism
 {
 	#input: username, password, url, method, file
 	#output: REST response
@@ -228,7 +228,7 @@ function Upload-FileToPrism
 .PARAMETER url
   Specifies the Prism url.
 .EXAMPLE
-  .\Upload-FileToPrism -username admin -password admin -url https://10.10.10.10:9440/api/nutanix/v0.8/images/$image_uuid/upload -method "PUT" -container_uuid $container_uuid -file /media/backup/vmdisk.qcow2
+  .\Send-FileToPrism -username admin -password admin -url https://10.10.10.10:9440/api/nutanix/v0.8/images/$image_uuid/upload -method "PUT" -container_uuid $container_uuid -file /media/backup/vmdisk.qcow2
 #>
 	param
 	(

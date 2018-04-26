@@ -68,7 +68,7 @@ https://github.com/sbourdeaud
 }#end function Write-LogOutput
 
 #this function is used to connect to Prism REST API
-function Get-PrismRESTCall
+function Invoke-PrismRESTCall
 {
 	#input: username, password, url, method, body
 	#output: REST response
@@ -303,3 +303,5 @@ break
 }#end function Get-RESTError
 
 #endregion
+
+New-Alias -Name Get-PrismRESTCall -value Invoke-PrismRESTCall -Description "Invoke Nutanix Prism REST call."

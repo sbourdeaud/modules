@@ -302,6 +302,133 @@ return $global:responsebody
 break
 }#end function Get-RESTError
 
+#this function is used to create saved credentials for the current user
+function Set-CustomCredentials {
+#input: path, credname
+	#output: saved credentials file
+<#
+.SYNOPSIS
+  Creates a saved credential file using DAPI for the current user on the local machine.
+.DESCRIPTION
+  This function is used to create a saved credential file using DAPI for the current user on the local machine.
+.NOTES
+  Author: Stephane Bourdeaud
+.PARAMETER path
+  Specifies the custom path where to save the credential file. By default, this will be %USERPROFILE%\Documents\WindowsPowershell\CustomCredentials.
+.PARAMETER credname
+  Specifies the credential file name.
+.EXAMPLE
+.\Set-CustomCredentials -path c:\creds -credname prism-apiuser
+Will prompt for user credentials and create a file called prism-apiuser.txt in c:\creds
+#>
+	param
+	(
+		[parameter(mandatory = $false)]
+        [string] 
+        $path,
+		
+        [parameter(mandatory = $true)]
+        [string] 
+        $credname
+	)
+
+    begin
+    {
+        if (!$path)
+        {
+            $path = "$Env:USERPROFILE\Documents\WindowsPowerShell\CustomCredentials"
+            Write-Host "$(get-date) [INFO] Set path to $path" -ForegroundColor Green
+        } 
+    }
+    process
+    {
+        #prompt for credentials
+        $credentialsFilePath = "$path\$credname.txt"
+		$credentials = Get-Credential -Message "Enter the credentials to save in $Env:USERPROFILE\Documents\WindowsPowerShell\CustomCredentials\$credname.txt"
+		
+		#put details in hashed format
+		$user = $credentials.UserName
+		$securePassword = $credentials.Password
+        
+        #convert secureString to text
+        $password = $securePassword | ConvertFrom-SecureString
+
+        #create directory to store creds if it does not already exist
+        if(!(Test-Path $path))
+		{
+			try {$result = New-Item -type Directory $path} catch {throw "$(get-date) [ERROR] Could not create directory $path : $($_.Exception.Message)"}
+		}
+
+        #save creds to file
+        try {Set-Content $credentialsFilePath $user} catch {throw "$(get-date) [ERROR] Could not write username to $credentialsFilePath : $($_.Exception.Message)"}
+		try {Add-Content $credentialsFilePath $password} catch {throw "$(get-date) [ERROR] Could not write password to $credentialsFilePath : $($_.Exception.Message)"}
+
+        Write-Host "$(get-date) [SUCCESS] Saved credentials to $credentialsFilePath" -ForegroundColor Cyan                
+    }
+    end
+    {}
+}
+
+#this function is used to retrieve saved credentials for the current user
+function Get-CustomCredentials {
+#input: path, credname
+	#output: credential object
+<#
+.SYNOPSIS
+  Retrieves saved credential file using DAPI for the current user on the local machine.
+.DESCRIPTION
+  This function is used to retrieve a saved credential file using DAPI for the current user on the local machine.
+.NOTES
+  Author: Stephane Bourdeaud
+.PARAMETER path
+  Specifies the custom path where the credential file is. By default, this will be %USERPROFILE%\Documents\WindowsPowershell\CustomCredentials.
+.PARAMETER credname
+  Specifies the credential file name.
+.EXAMPLE
+.\Get-CustomCredentials -path c:\creds -credname prism-apiuser
+Will retrieve credentials from the file called prism-apiuser.txt in c:\creds
+#>
+	param
+	(
+        [parameter(mandatory = $false)]
+		[string] 
+        $path,
+		
+        [parameter(mandatory = $true)]
+        [string] 
+        $credname
+	)
+
+    begin
+    {
+        if (!$path)
+        {
+            $path = "$Env:USERPROFILE\Documents\WindowsPowerShell\CustomCredentials"
+            Write-Host "$(get-date) [INFO] Retrieving credentials from $path" -ForegroundColor Green
+        }
+    }
+    process
+    {
+        $credentialsFilePath = "$path\$credname.txt"
+        if(!(Test-Path $credentialsFilePath))
+	    {
+            throw "$(get-date) [ERROR] Could not access file $credentialsFilePath : $($_.Exception.Message)"
+        }
+
+        $credFile = Get-Content $credentialsFilePath
+		$user = $credFile[0]
+		$securePassword = $credFile[1] | ConvertTo-SecureString
+
+        $customCredentials = New-Object System.Management.Automation.PSCredential -ArgumentList $user, $securePassword
+
+        Write-Host "$(get-date) [SUCCESS] Returning credentials from $credentialsFilePath" -ForegroundColor Cyan 
+    }
+    end
+    {
+        return $customCredentials
+    }
+}
+
 #endregion
 
 New-Alias -Name Get-PrismRESTCall -value Invoke-PrismRESTCall -Description "Invoke Nutanix Prism REST call."

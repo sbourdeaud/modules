@@ -120,7 +120,11 @@ function Invoke-PrismRESTCall
             
             if ($IsLinux) {
                 try {
-			        $myvarRESTOutput = Invoke-RestMethod -Method $method -Uri $url -Headers $myvarHeader -Body $body -SkipCertificateCheck -ErrorAction Stop
+			        if ($PSVersionTable.PSVersion.Major -ge 6) {
+			            $myvarRESTOutput = Invoke-RestMethod -Method $method -Uri $url -Headers $myvarHeader -Body $body -SkipCertificateCheck -SslProtocol Tls12 -ErrorAction Stop
+                    } else {
+                        $myvarRESTOutput = Invoke-RestMethod -Method $method -Uri $url -Headers $myvarHeader -Body $body -SkipCertificateCheck -ErrorAction Stop
+                    }
 		        }
 		        catch {
 			        Write-LogOutput -category "ERROR" -message "$($_.Exception.Message)"

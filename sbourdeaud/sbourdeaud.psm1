@@ -466,7 +466,7 @@ begin {
 process {
     do {$userChoice = Read-Host -Prompt "Do you want to continue? (Y[es]/N[o]/S[kip])"} #display the user prompt
     while ($userChoice -notmatch '[ynsYNS]') #loop until the user input is valid
-    $userChoice.ToLower() #change to lowercase
+    $userChoice = $userChoice.ToLower() #change to lowercase
 }
 end {
     return $userChoice

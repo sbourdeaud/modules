@@ -22,8 +22,7 @@ If you want to log output to a file as well, use logfile to pass the log file fu
 Author: Stephane Bourdeaud (sbourdeaud@nutanix.com)
 
 .EXAMPLE
-PS> Write-LogOutput -category "ERROR" -message "You must be kidding!"
-
+.\Write-LogOutput -category "ERROR" -message "You must be kidding!"
 Displays an error message.
 
 .LINK
@@ -34,7 +33,7 @@ https://github.com/sbourdeaud
 	param
 	(
 		[Parameter(Mandatory)]
-        [ValidateSet('INFO','WARNING','ERROR','SUM')]
+        [ValidateSet('INFO','WARNING','ERROR','SUM','SUCCESS')]
         [string]
         $Category,
 
@@ -54,7 +53,8 @@ https://github.com/sbourdeaud
 		    "INFO" {$FgColor = "Green"}
 		    "WARNING" {$FgColor = "Yellow"}
 		    "ERROR" {$FgColor = "Red"}
-		    "SUM" {$FgColor = "Magenta"}
+            "SUM" {$FgColor = "Magenta"}
+            "SUCCESS" {$FgColor = "Cyan"}
 	    }
 
 	    Write-Host -ForegroundColor $FgColor "$Date [$category] $Message" #write the entry on the screen
@@ -294,7 +294,8 @@ function Send-FileToPrism
 }#end function Upload-FileToPrism
 
 #function Get-RESTError
-function Get-RESTError {
+function Get-RESTError 
+{
 $global:helpme = $body
 $global:helpmoref = $moref
 $global:result = $_.Exception.Response.GetResponseStream()
@@ -307,7 +308,8 @@ break
 }#end function Get-RESTError
 
 #this function is used to create saved credentials for the current user
-function Set-CustomCredentials {
+function Set-CustomCredentials 
+{
 #input: path, credname
 	#output: saved credentials file
 <#
@@ -374,7 +376,8 @@ Will prompt for user credentials and create a file called prism-apiuser.txt in c
 }
 
 #this function is used to retrieve saved credentials for the current user
-function Get-CustomCredentials {
+function Get-CustomCredentials 
+{
 #input: path, credname
 	#output: credential object
 <#
@@ -433,6 +436,43 @@ Will retrieve credentials from the file called prism-apiuser.txt in c:\creds
     }
 }
 
+#this function is used to prompt the user for a yes/no/skip response in order to control the workflow of a script
+function Write-CustomPrompt 
+{
+<#
+.SYNOPSIS
+Creates a user prompt with a yes/no/skip response. Returns the response.
+
+.DESCRIPTION
+Creates a user prompt with a yes/no/skip response. Returns the response in lowercase. Valid responses are "y" for yes, "n" for no, "s" for skip.
+
+.NOTES
+Author: Stephane Bourdeaud (sbourdeaud@nutanix.com)
+
+.EXAMPLE
+.\Write-CustomPrompt
+Creates the prompt.
+
+.LINK
+https://github.com/sbourdeaud
+#>
+[CmdletBinding(DefaultParameterSetName = 'None')] #make this function advanced
+
+param ()
+
+begin {
+    [String]$userChoice = "" #initialize our returned variable
+}
+process {
+    do {$userChoice = Read-Host -Prompt "Do you want to continue? (Y[es]/N[o]/S[kip])"} #display the user prompt
+    while ($userChoice -notmatch '[ynsYNS]') #loop until the user input is valid
+    $userChoice.ToLower() #change to lowercase
+}
+end {
+    return $userChoice
+}
+
+} #end Write-CustomPrompt function
 #endregion
 
 New-Alias -Name Get-PrismRESTCall -value Invoke-PrismRESTCall -Description "Invoke Nutanix Prism REST call."

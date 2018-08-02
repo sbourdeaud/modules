@@ -538,7 +538,7 @@ https://github.com/sbourdeaud
 
 param 
 (
-    [Switch]skip
+    [Switch]$skip
 )
 
 begin 

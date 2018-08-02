@@ -114,76 +114,116 @@ function Invoke-PrismRESTCall
 
     process
     {
-        if ($body) {
+        if ($body) 
+        {
             $myvarHeader += @{"Accept"="application/json"}
 		    $myvarHeader += @{"Content-Type"="application/json"}
             
-            if ($IsLinux) {
-                try {
-			        if ($PSVersionTable.PSVersion.Major -ge 6) {
+            if ($IsLinux) 
+            {
+                try 
+                {
+                    if ($PSVersionTable.PSVersion.Major -ge 6) 
+                    {
 			            $myvarRESTOutput = Invoke-RestMethod -Method $method -Uri $url -Headers $myvarHeader -Body $body -SkipCertificateCheck -SslProtocol Tls12 -ErrorAction Stop
-                    } else {
+                    } 
+                    else 
+                    {
                         $myvarRESTOutput = Invoke-RestMethod -Method $method -Uri $url -Headers $myvarHeader -Body $body -SkipCertificateCheck -ErrorAction Stop
                     }
 		        }
-		        catch {
+                catch 
+                {
 			        Write-LogOutput -category "ERROR" -message "$($_.Exception.Message)"
-                    try {
+                    try 
+                    {
                         $RESTError = Get-RESTError -ErrorAction Stop
                         $RESTErrorMessage = ($RESTError | ConvertFrom-Json).Message
-                        if ($RESTErrorMessage) {Write-LogOutput -category "ERROR" -message "$RESTErrorMessage"}
+                        if ($RESTErrorMessage) 
+                        {
+                            Write-LogOutput -category "ERROR" -message "$RESTErrorMessage"
+                        }
                     }
-                    catch {
-                        Write-LogOutput -category "ERROR" -message "Could not retrieve full REST error details."
-                    }
-			        Exit
-		        }
-            }else {
-                try {
-			        $myvarRESTOutput = Invoke-RestMethod -Method $method -Uri $url -Headers $myvarHeader -Body $body -ErrorAction Stop
-		        }
-		        catch {
-			        Write-LogOutput -category "ERROR" -message "$($_.Exception.Message)"
-                    try {
-                        $RESTError = Get-RESTError -ErrorAction Stop
-                        $RESTErrorMessage = ($RESTError | ConvertFrom-Json).Message
-                        if ($RESTErrorMessage) {Write-LogOutput -category "ERROR" -message "$RESTErrorMessage"}
-                    }
-                    catch {
+                    catch 
+                    {
                         Write-LogOutput -category "ERROR" -message "Could not retrieve full REST error details."
                     }
 			        Exit
 		        }
             }
-        } else {
-            if ($IsLinux) {
-                try {
-			        $myvarRESTOutput = Invoke-RestMethod -Method $method -Uri $url -Headers $myvarHeader -SkipCertificateCheck -ErrorAction Stop
+            else 
+            {
+                try 
+                {
+			        $myvarRESTOutput = Invoke-RestMethod -Method $method -Uri $url -Headers $myvarHeader -Body $body -ErrorAction Stop
 		        }
-		        catch {
+                catch 
+                {
 			        Write-LogOutput -category "ERROR" -message "$($_.Exception.Message)"
-                    try {
+                    try 
+                    {
                         $RESTError = Get-RESTError -ErrorAction Stop
                         $RESTErrorMessage = ($RESTError | ConvertFrom-Json).Message
-                        if ($RESTErrorMessage) {Write-LogOutput -category "ERROR" -message "$RESTErrorMessage"}
+                        if ($RESTErrorMessage) 
+                        {
+                            Write-LogOutput -category "ERROR" -message "$RESTErrorMessage"
+                        }
                     }
-                    catch {
+                    catch 
+                    {
                         Write-LogOutput -category "ERROR" -message "Could not retrieve full REST error details."
                     }
 			        Exit
 		        }
-            }else {
-                try {
-			        $myvarRESTOutput = Invoke-RestMethod -Method $method -Uri $url -Headers $myvarHeader -ErrorAction Stop
+            }
+        } 
+        else 
+        {
+            if ($IsLinux) 
+            {
+                try 
+                {
+			        $myvarRESTOutput = Invoke-RestMethod -Method $method -Uri $url -Headers $myvarHeader -SkipCertificateCheck -ErrorAction Stop
 		        }
-		        catch {
+                catch 
+                {
 			        Write-LogOutput -category "ERROR" -message "$($_.Exception.Message)"
-                    try {
+                    try 
+                    {
                         $RESTError = Get-RESTError -ErrorAction Stop
                         $RESTErrorMessage = ($RESTError | ConvertFrom-Json).Message
-                        if ($RESTErrorMessage) {Write-LogOutput -category "ERROR" -message "$RESTErrorMessage"}
+                        if ($RESTErrorMessage) 
+                        {
+                            Write-LogOutput -category "ERROR" -message "$RESTErrorMessage"
+                        }
                     }
-                    catch {
+                    catch 
+                    {
+                        Write-LogOutput -category "ERROR" -message "Could not retrieve full REST error details."
+                    }
+			        Exit
+		        }
+            }
+            else 
+            {
+                try 
+                {
+			        $myvarRESTOutput = Invoke-RestMethod -Method $method -Uri $url -Headers $myvarHeader -ErrorAction Stop
+		        }
+                catch 
+                {
+			        Write-LogOutput -category "ERROR" -message "$($_.Exception.Message)"
+                    try 
+                    {
+                        $RESTError = Get-RESTError -ErrorAction Stop
+                        $RESTErrorMessage = ($RESTError | ConvertFrom-Json).Message
+                        if ($RESTErrorMessage) 
+                        {
+                            Write-LogOutput -category "ERROR" -message "$RESTErrorMessage"
+                        }
+                    }
+                    catch 
+                    {
                         Write-LogOutput -category "ERROR" -message "Could not retrieve full REST error details."
                     }
 			        Exit
@@ -252,34 +292,51 @@ function Send-FileToPrism
 		$myvarHeader += @{"Content-Type"="application/octet-stream;charset=UTF-8"}
         #$myvarHeader += @{"X-Nutanix-Destination-Container"=$container_uuid}
             
-        if ($IsLinux) {
-            try {
+        if ($IsLinux) 
+        {
+            try 
+            {
 			    $myvarRESTOutput = Invoke-RestMethod -Method $method -Uri $url -Headers $myvarHeader -Body $file -SkipCertificateCheck -ErrorAction Stop
 		    }
-		    catch {
+            catch 
+            {
 			    Write-LogOutput -category "ERROR" -message "$($_.Exception.Message)"
-                try {
+                try 
+                {
                     $RESTError = Get-RESTError -ErrorAction Stop
                     $RESTErrorMessage = ($RESTError | ConvertFrom-Json).Message
-                    if ($RESTErrorMessage) {Write-LogOutput -category "ERROR" -message "$RESTErrorMessage"}
+                    if ($RESTErrorMessage) 
+                    {
+                        Write-LogOutput -category "ERROR" -message "$RESTErrorMessage"
+                    }
                 }
-                catch {
+                catch 
+                {
                     Write-LogOutput -category "ERROR" -message "Could not retrieve full REST error details."
                 }
 			    Exit
 		    }
-        }else {
-            try {
+        }
+        else 
+        {
+            try 
+            {
 			    $myvarRESTOutput = Invoke-RestMethod -Method $method -Uri $url -Headers $myvarHeader -Body $file -ErrorAction Stop
 		    }
-		    catch {
+            catch 
+            {
 			    Write-LogOutput -category "ERROR" -message "$($_.Exception.Message)"
-                try {
+                try 
+                {
                     $RESTError = Get-RESTError -ErrorAction Stop
                     $RESTErrorMessage = ($RESTError | ConvertFrom-Json).Message
-                    if ($RESTErrorMessage) {Write-LogOutput -category "ERROR" -message "$RESTErrorMessage"}
+                    if ($RESTErrorMessage) 
+                    {
+                        Write-LogOutput -category "ERROR" -message "$RESTErrorMessage"
+                    }
                 }
-                catch {
+                catch 
+                {
                     Write-LogOutput -category "ERROR" -message "Could not retrieve full REST error details."
                 }
 			    Exit
@@ -296,15 +353,15 @@ function Send-FileToPrism
 #function Get-RESTError
 function Get-RESTError 
 {
-$global:helpme = $body
-$global:helpmoref = $moref
-$global:result = $_.Exception.Response.GetResponseStream()
-$global:reader = New-Object System.IO.StreamReader($global:result)
-$global:responseBody = $global:reader.ReadToEnd();
+    $global:helpme = $body
+    $global:helpmoref = $moref
+    $global:result = $_.Exception.Response.GetResponseStream()
+    $global:reader = New-Object System.IO.StreamReader($global:result)
+    $global:responseBody = $global:reader.ReadToEnd();
 
-return $global:responsebody
+    return $global:responsebody
 
-break
+    break
 }#end function Get-RESTError
 
 #this function is used to create saved credentials for the current user
@@ -362,12 +419,33 @@ Will prompt for user credentials and create a file called prism-apiuser.txt in c
         #create directory to store creds if it does not already exist
         if(!(Test-Path $path))
 		{
-			try {$result = New-Item -type Directory $path} catch {throw "$(get-date) [ERROR] Could not create directory $path : $($_.Exception.Message)"}
+            try 
+            {
+                $result = New-Item -type Directory $path
+            } 
+            catch 
+            {
+                throw "$(get-date) [ERROR] Could not create directory $path : $($_.Exception.Message)"
+            }
 		}
 
         #save creds to file
-        try {Set-Content $credentialsFilePath $user} catch {throw "$(get-date) [ERROR] Could not write username to $credentialsFilePath : $($_.Exception.Message)"}
-		try {Add-Content $credentialsFilePath $password} catch {throw "$(get-date) [ERROR] Could not write password to $credentialsFilePath : $($_.Exception.Message)"}
+        try 
+        {
+            Set-Content $credentialsFilePath $user
+        } 
+        catch 
+        {
+            throw "$(get-date) [ERROR] Could not write username to $credentialsFilePath : $($_.Exception.Message)"
+        }
+        try 
+        {
+            Add-Content $credentialsFilePath $password
+        } 
+        catch 
+        {
+            throw "$(get-date) [ERROR] Could not write password to $credentialsFilePath : $($_.Exception.Message)"
+        }
 
         Write-Host "$(get-date) [SUCCESS] Saved credentials to $credentialsFilePath" -ForegroundColor Cyan                
     }
@@ -458,17 +536,31 @@ https://github.com/sbourdeaud
 #>
 [CmdletBinding(DefaultParameterSetName = 'None')] #make this function advanced
 
-param ()
+param 
+(
+    [Switch]skip
+)
 
-begin {
+begin 
+{
     [String]$userChoice = "" #initialize our returned variable
 }
-process {
-    do {$userChoice = Read-Host -Prompt "Do you want to continue? (Y[es]/N[o]/S[kip])"} #display the user prompt
-    while ($userChoice -notmatch '[ynsYNS]') #loop until the user input is valid
+process 
+{
+    if ($skip)
+    {
+        do {$userChoice = Read-Host -Prompt "Do you want to continue? (Y[es]/N[o]/S[kip])"} #display the user prompt
+        while ($userChoice -notmatch '[ynsYNS]') #loop until the user input is valid
+    }
+    else 
+    {
+        do {$userChoice = Read-Host -Prompt "Do you want to continue? (Y[es]/N[o])"} #display the user prompt
+        while ($userChoice -notmatch '[ynYN]') #loop until the user input is valid
+    }
     $userChoice = $userChoice.ToLower() #change to lowercase
 }
-end {
+end 
+{
     return $userChoice
 }
 

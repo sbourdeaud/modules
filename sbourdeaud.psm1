@@ -565,6 +565,204 @@ end
 }
 
 } #end Write-CustomPrompt function
+
+#this function is used to make sure we use the proper Tls version (1.2 only required for connection to Prism)
+function Set-PoshTls
+{
+<#
+.SYNOPSIS
+Makes sure we use the proper Tls version (1.2 only required for connection to Prism).
+
+.DESCRIPTION
+Installs BetterTls module and loads it. Disables Tls and enables Tls 1.2.
+
+.NOTES
+Author: Stephane Bourdeaud (sbourdeaud@nutanix.com)
+
+.EXAMPLE
+.\Set-PoshTls
+Installs BetterTls module and loads it. Disables Tls and enables Tls 1.2.
+
+.LINK
+https://github.com/sbourdeaud
+#>
+[CmdletBinding(DefaultParameterSetName = 'None')] #make this function advanced
+
+    param 
+    (
+        
+    )
+
+    begin 
+    {
+    }
+
+    process
+    {
+        if (!(Get-Module -Name BetterTls)) 
+        {#module isn't laoded
+            Write-LogOutput -Category "INFO" -LogFile $myvarOutputLogFile -Message "Importing module 'BetterTls'..."
+            try
+            {#let's try to load it
+                Import-Module -Name BetterTls -ErrorAction Stop
+                Write-LogOutput -Category "SUCCESS" -LogFile $myvarOutputLogFile -Message "Imported module 'BetterTls'!"
+            }
+            catch 
+            {#we couldn't import the module, so let's install it
+                Write-LogOutput -Category "INFO" -LogFile $myvarOutputLogFile -Message "Installing module 'BetterTls' from the Powershell Gallery..."
+                try 
+                {#install
+                    Install-Module -Name BetterTls -Scope CurrentUser -ErrorAction Stop
+                }
+                catch 
+                {#couldn't install
+                    Write-LogOutput -Category "ERROR" -LogFile $myvarOutputLogFile -Message "Could not install module 'BetterTls': $($_.Exception.Message)"
+                    exit
+                }
+
+                try
+                {#import module
+                    Import-Module -Name BetterTls -ErrorAction Stop
+                    Write-LogOutput -Category "SUCCESS" -LogFile $myvarOutputLogFile -Message "Imported module 'BetterTls'!"
+                }
+                catch 
+                {#we couldn't import the module
+                    Write-LogOutput -Category "ERROR" -LogFile $myvarOutputLogFile -Message "Unable to import the module BetterTls : $($_.Exception.Message)"
+                    Write-LogOutput -Category "WARNING" -LogFile $myvarOutputLogFile -Message "Please download and install from https://www.powershellgallery.com/packages/BetterTls/0.1.0.0"
+                    Exit
+                }
+            }#end catch
+        }
+        Write-LogOutput -Category "INFO" -LogFile $myvarOutputLogFile -Message "Disabling Tls..."
+        try 
+        {#disable old tls protocol
+            Disable-Tls -Tls -Confirm:$false -ErrorAction Stop
+        } 
+        catch 
+        {#couldn't disable old tls protocol
+            Write-LogOutput -Category "ERROR" -LogFile $myvarOutputLogFile -Message "Could not disable Tls : $($_.Exception.Message)"
+            Exit
+        }
+        Write-LogOutput -Category "INFO" -LogFile $myvarOutputLogFile -Message "Enabling Tls 1.2..."
+        try 
+        {#enable tls12
+            Enable-Tls -Tls12 -Confirm:$false -ErrorAction Stop
+        } 
+        catch 
+        {#couldn't enable tls12
+            Write-LogOutput -Category "ERROR" -LogFile $myvarOutputLogFile -Message "Could not enable Tls 1.2 : $($_.Exception.Message)"
+            Exit
+        }
+    }
+
+    end
+    {
+
+    }
+}
+
+#this function is used to load PowerCLI
+function Get-PowerCLIModule
+{
+<#
+.SYNOPSIS
+Makes sure we use the VMware.PowerCLI version 10 or above is installed and loaded.
+
+.DESCRIPTION
+Installs VMware.PowerCLI module and loads it. Configures PowerCLI to accept invalid SSL certificates.
+
+.NOTES
+Author: Stephane Bourdeaud (sbourdeaud@nutanix.com)
+
+.EXAMPLE
+.\Get-PowerCLIModule
+Installs VMware.PowerCLI module and loads it. Configures PowerCLI to accept invalid SSL certificates.
+
+.LINK
+https://github.com/sbourdeaud
+#>
+[CmdletBinding(DefaultParameterSetName = 'None')] #make this function advanced
+
+    param
+    (
+
+    )
+
+    begin
+    {
+
+    }
+
+    process
+    {
+        if (!(Get-Module VMware.PowerCLI)) 
+        {#module isn't loaded
+            try 
+            {#load
+                Write-LogOutput -Category "INFO" -LogFile $myvarOutputLogFile -Message "Loading VMware.PowerCLI module..."
+                Import-Module VMware.VimAutomation.Core -ErrorAction Stop
+                Write-LogOutput -Category "SUCCESS" -LogFile $myvarOutputLogFile -Message "Loaded VMware.PowerCLI module"
+            }
+            catch 
+            {#couldn't load
+                Write-LogOutput -Category "WARNING" -LogFile $myvarOutputLogFile -Message "Could not load VMware.PowerCLI module!"
+                try 
+                {#install
+                    Write-LogOutput -Category "INFO" -LogFile $myvarOutputLogFile -Message "Installing VMware.PowerCLI module..."
+                    Install-Module -Name VMware.PowerCLI -Scope CurrentUser -ErrorAction Stop
+                    Write-LogOutput -Category "SUCCESS" -LogFile $myvarOutputLogFile -Message "Installed VMware.PowerCLI module"
+                    try 
+                    {#load
+                        Write-LogOutput -Category "INFO" -LogFile $myvarOutputLogFile -Message "Loading VMware.PowerCLI module..."
+                        Import-Module VMware.VimAutomation.Core -ErrorAction Stop
+                        Write-LogOutput -Category "SUCCESS" -LogFile $myvarOutputLogFile -Message "Loaded VMware.PowerCLI module"
+                    }
+                    catch 
+                    {#couldn't load
+                        Write-LogOutput -Category "ERROR" -LogFile $myvarOutputLogFile -Message "Could not load the VMware.PowerCLI module : $($_.Exception.Message)"
+                        Exit
+                    }
+                }
+                catch 
+                {#couldn't install
+                    Write-LogOutput -Category "ERROR" -LogFile $myvarOutputLogFile -Message "Could not install the VMware.PowerCLI module. Install it manually from https://www.powershellgallery.com/items?q=powercli&x=0&y=0 : $($_.Exception.Message)"
+                    Exit
+                }
+            }
+        }
+
+        #check PowerCLI version
+        if ((Get-Module -Name VMware.VimAutomation.Core).Version.Major -lt 10) 
+        {#check version
+            try 
+            {#update
+                Update-Module -Name VMware.PowerCLI -Scope CurrentUser -ErrorAction Stop
+            } 
+            catch 
+            {#couldn't update
+                Write-LogOutput -Category "ERROR" -LogFile $myvarOutputLogFile -Message "Could not update the VMware.PowerCLI module : $($_.Exception.Message)"
+                Exit
+            }
+        }
+        Write-LogOutput -Category "INFO" -LogFile $myvarOutputLogFile -Message "Setting the PowerCLI configuration to ignore invalid certificates..."
+        try 
+        {#configure ssl
+            $result = Set-PowerCLIConfiguration -InvalidCertificateAction Ignore -Confirm:$false -ErrorAction Stop
+        }
+        catch 
+        {#couldn't configure ssl
+            Write-LogOutput -Category "ERROR" -LogFile $myvarOutputLogFile -Message "Could not change the VMware.PowerCLI module configuration: $($_.Exception.Message)"
+            exit
+        }
+        Write-LogOutput -Category "SUCCESS" -LogFile $myvarOutputLogFile -Message "Successfully configured the PowerCLI configuration to ignore invalid certificates"
+    }
+
+    end
+    {
+
+    }
+}
+
 #endregion
 
 New-Alias -Name Get-PrismRESTCall -value Invoke-PrismRESTCall -Description "Invoke Nutanix Prism REST call."

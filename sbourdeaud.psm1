@@ -763,6 +763,118 @@ https://github.com/sbourdeaud
     }
 }
 
+#this function is used to run an hv query
+Function Invoke-HvQuery
+{
+	#input: QueryType (see https://vdc-repo.vmware.com/vmwb-repository/dcr-public/f004a27f-6843-4efb-9177-fa2e04fda984/5db23088-04c6-41be-9f6d-c293201ceaa9/doc/index-queries.html), ViewAPI service object
+	#output: query results
+<#
+.SYNOPSIS
+  Runs a Horizon View query.
+.DESCRIPTION
+  Runs a Horizon View query. Processes all queries as a single page (with 1000 records max), except for ADUserOrGroupSummaryView which is paginated.
+.NOTES
+  Author: Stephane Bourdeaud
+.PARAMETER QueryType
+  Type of query (see https://vdc-repo.vmware.com/vmwb-repository/dcr-public/f004a27f-6843-4efb-9177-fa2e04fda984/5db23088-04c6-41be-9f6d-c293201ceaa9/doc/index-queries.html)
+.PARAMETER ViewAPIObject
+  View API service object.
+.EXAMPLE
+.\Invoke-HvQuery -QueryType PersistentDiskInfo -ViewAPIObject $ViewAPI
+#>
+	[CmdletBinding()]
+	param
+	(
+        [string]
+        [ValidateSet('ADUserOrGroupSummaryView','ApplicationIconInfo','ApplicationInfo','DesktopSummaryView','EntitledUserOrGroupGlobalSummaryView','EntitledUserOrGroupLocalSummaryView','FarmHealthInfo','FarmSummaryView','GlobalEntitlementSummaryView','MachineNamesView','MachineSummaryView','PersistentDiskInfo','PodAssignmentInfo','RDSServerInfo','RDSServerSummaryView','RegisteredPhysicalMachineInfo','SessionGlobalSummaryView','SessionLocalSummaryView','TaskInfo','UserHomeSiteInfo')]
+        $QueryType,
+        [VMware.Hv.Services]
+        $ViewAPIObject
+	)
+
+    begin
+    {
+
+    }
+
+    process
+    {
+	    $serviceQuery = New-Object "Vmware.Hv.QueryServiceService"
+        $query = New-Object "Vmware.Hv.QueryDefinition"
+        $query.queryEntityType = $QueryType
+        $query.MaxPageSize = 1000
+        if ($query.QueryEntityType -eq 'PersistentDiskInfo') 
+        {#add filter for PersistentDiskInfo query
+            $query.Filter = New-Object VMware.Hv.QueryFilterNotEquals -property @{'memberName'='storage.virtualCenter'; 'value' =$null}
+        }
+        if ($query.QueryEntityType -eq 'ADUserOrGroupSummaryView') 
+        {#get AD information in multiple pages
+            $paginatedResults = @() #we use this variable to save all pages of results
+            try 
+            {#run the query and process the results using pagination
+                $object = $serviceQuery.QueryService_Create($ViewAPIObject,$query)
+                try 
+                {#paginate
+                    while ($object.results -ne $null)
+                    {#we still have data in there
+                        $paginatedResults += $object.results
+
+                        if ($object.id -eq $null)
+                        {#no more pages of results
+                            break
+                        }
+                        #fetching the next page of results
+                        $object = $serviceQuery.QueryService_GetNext($ViewAPIObject,$object.id)
+                    }
+                }
+                Finally
+                {#delete the paginated query on the server to save resources and avoid the 5 query limit
+                    if ($object.id -ne $null)
+                    {#make sure this was the last page
+                        $serviceQuery.QueryService_Delete($ViewAPIObject,$object.id)
+                    }
+                }
+            }
+            catch 
+            {#query failed
+                Write-LogOutput -Category "ERROR" -LogFile $myvarOutputLogFile -Message "$($_.Exception.Message)"
+                exit
+            }
+        } 
+        else 
+        {#get all other type of information using a single list limited to $query.MaxPageSize (or related server setting)
+            try 
+            {#run the query
+                $object = $serviceQuery.QueryService_Query($ViewAPIObject,$query)
+            }
+            catch 
+            {#query failed
+                Write-LogOutput -Category "ERROR" -LogFile $myvarOutputLogFile -Message "$($_.Exception.Message)"
+                exit
+            }
+        }
+
+        if (!$object) 
+        {
+            Write-LogOutput -Category "ERROR" -LogFile $myvarOutputLogFile -Message "The View API query did not return any data... Exiting!"
+            Exit
+        }
+    }
+
+    end
+    {
+        if ($query.QueryEntityType -eq 'ADUserOrGroupSummaryView') 
+        {#we ran an AD query so we probably have paginated results to return
+            return $paginatedResults
+        }
+        else
+        {#we ran a single page query so let's return that
+            return $object.results
+        }
+    }
+}#end function Invoke-HvQuery
+
+
 #endregion
 
 New-Alias -Name Get-PrismRESTCall -value Invoke-PrismRESTCall -Description "Invoke Nutanix Prism REST call."

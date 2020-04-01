@@ -1,5 +1,6 @@
 #region functions
 
+#region helper functions
 function Write-LogOutput
 {
 <#
@@ -82,7 +83,9 @@ function Help-RESTError
 
     break
 }#end function Get-RESTError
+#endregion
 
+#region prism
 #this function is used to make a REST api call to Prism
 function Invoke-PrismAPICall
 {
@@ -292,6 +295,51 @@ function Send-FileToPrism
     }
 }#end function Upload-FileToPrism
 
+#this function is used to get a Prism task status
+function Get-NTNXTask
+{
+<#
+.SYNOPSIS
+Gets status for a given Prism task uuid (replaces NTNX cmdlet)
+.DESCRIPTION
+Gets status for a given Prism task uuid
+#>
+    [CmdletBinding()]
+    [Alias()]
+    [OutputType([int])]
+    Param
+    (
+        # Param1 help description
+        [Parameter(Mandatory=$true,
+                ValueFromPipelineByPropertyName=$true,
+                Position=0)]
+        $TaskId,
+        
+        [parameter(mandatory = $true)]
+        [System.Management.Automation.PSCredential]
+        $credential,
+
+        [parameter(mandatory = $true)]
+        [String]
+        $cluster
+    )
+
+    Begin
+    {
+    }
+    Process
+    {
+        $myvarUrl = "https://"+$cluster+":9440/PrismGateway/services/rest/v2.0/tasks/$($TaskId.task_uuid)"
+        $result = Invoke-PrismAPICall -credential $credential -method "GET" -url $myvarUrl
+    }
+    End
+    {
+        return $result
+    }
+}#end function Get-NTNXTask
+#endregion
+
+#region credentials
 #this function is used to create saved credentials for the current user
 function Set-CustomCredentials 
 {
@@ -448,7 +496,9 @@ Will retrieve credentials from the file called prism-apiuser.txt in c:\creds
         return $customCredentials
     }
 }
+#endregion
 
+#region misc
 #this function is used to prompt the user for a yes/no/skip response in order to control the workflow of a script
 function Write-CustomPrompt 
 {
@@ -500,7 +550,9 @@ end
 }
 
 } #end Write-CustomPrompt function
+#endregion
 
+#region posh and dotnet configuration
 #this function is used to make sure we use the proper Tls version (1.2 only required for connection to Prism)
 function Set-PoshTls
 {
@@ -596,6 +648,61 @@ https://github.com/sbourdeaud
     }
 }
 
+#this function is used to configure posh to ignore invalid ssl certificates
+function Set-PoSHSSLCerts
+{
+<#
+.SYNOPSIS
+Configures PoSH to ignore invalid SSL certificates when doing Invoke-RestMethod
+.DESCRIPTION
+Configures PoSH to ignore invalid SSL certificates when doing Invoke-RestMethod
+#>
+    begin
+    {
+
+    }#endbegin
+    process
+    {
+        Write-Host "$(Get-Date) [INFO] Ignoring invalid certificates" -ForegroundColor Green
+        if (-not ([System.Management.Automation.PSTypeName]'ServerCertificateValidationCallback').Type) {
+            $certCallback = @"
+using System;
+using System.Net;
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
+public class ServerCertificateValidationCallback
+{
+    public static void Ignore()
+    {
+        if(ServicePointManager.ServerCertificateValidationCallback ==null)
+        {
+            ServicePointManager.ServerCertificateValidationCallback += 
+                delegate
+                (
+                    Object obj, 
+                    X509Certificate certificate, 
+                    X509Chain chain, 
+                    SslPolicyErrors errors
+                )
+                {
+                    return true;
+                };
+        }
+    }
+}
+"@
+            Add-Type $certCallback
+        }#endif
+        [ServerCertificateValidationCallback]::Ignore()
+    }#endprocess
+    end
+    {
+
+    }#endend
+}#end function Set-PoSHSSLCerts
+#endregion
+
+#region vmware
 #this function is used to load PowerCLI
 function Get-PowerCLIModule
 {
@@ -808,49 +915,7 @@ function Invoke-HvQuery
         }
     }
 }#end function Invoke-HvQuery
-
-#this function is used to get a Prism task status
-function Get-NTNXTask
-{
-<#
-.SYNOPSIS
-Gets status for a given Prism task uuid (replaces NTNX cmdlet)
-.DESCRIPTION
-Gets status for a given Prism task uuid
-#>
-    [CmdletBinding()]
-    [Alias()]
-    [OutputType([int])]
-    Param
-    (
-        # Param1 help description
-        [Parameter(Mandatory=$true,
-                ValueFromPipelineByPropertyName=$true,
-                Position=0)]
-        $TaskId,
-        
-        [parameter(mandatory = $true)]
-        [System.Management.Automation.PSCredential]
-        $credential,
-
-        [parameter(mandatory = $true)]
-        [String]
-        $cluster
-    )
-
-    Begin
-    {
-    }
-    Process
-    {
-        $myvarUrl = "https://"+$cluster+":9440/PrismGateway/services/rest/v2.0/tasks/$($TaskId.task_uuid)"
-        $result = Invoke-PrismAPICall -credential $credential -method "GET" -url $myvarUrl
-    }
-    End
-    {
-        return $result
-    }
-}#end function Get-NTNXTask
+#endregion
 
 #endregion
 

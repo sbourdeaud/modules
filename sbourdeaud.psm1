@@ -561,14 +561,14 @@ function Set-PoshTls
 Makes sure we use the proper Tls version (1.2 only required for connection to Prism).
 
 .DESCRIPTION
-Installs BetterTls module and loads it. Disables Tls and enables Tls 1.2.
+Makes sure we use the proper Tls version (1.2 only required for connection to Prism).
 
 .NOTES
 Author: Stephane Bourdeaud (sbourdeaud@nutanix.com)
 
 .EXAMPLE
 .\Set-PoshTls
-Installs BetterTls module and loads it. Disables Tls and enables Tls 1.2.
+Makes sure we use the proper Tls version (1.2 only required for connection to Prism).
 
 .LINK
 https://github.com/sbourdeaud
@@ -586,60 +586,10 @@ https://github.com/sbourdeaud
 
     process
     {
-        if (!(Get-Module -Name BetterTls)) 
-        {#module isn't laoded
-            Write-LogOutput -Category "INFO" -LogFile $myvarOutputLogFile -Message "Importing module 'BetterTls'..."
-            try
-            {#let's try to load it
-                Import-Module -Name BetterTls -ErrorAction Stop
-                Write-LogOutput -Category "SUCCESS" -LogFile $myvarOutputLogFile -Message "Imported module 'BetterTls'!"
-            }
-            catch 
-            {#we couldn't import the module, so let's install it
-                Write-LogOutput -Category "INFO" -LogFile $myvarOutputLogFile -Message "Installing module 'BetterTls' from the Powershell Gallery..."
-                try 
-                {#install
-                    Install-Module -Name BetterTls -Scope CurrentUser -ErrorAction Stop
-                }
-                catch 
-                {#couldn't install
-                    Write-LogOutput -Category "ERROR" -LogFile $myvarOutputLogFile -Message "Could not install module 'BetterTls': $($_.Exception.Message)"
-                    exit
-                }
-
-                try
-                {#import module
-                    Import-Module -Name BetterTls -ErrorAction Stop
-                    Write-LogOutput -Category "SUCCESS" -LogFile $myvarOutputLogFile -Message "Imported module 'BetterTls'!"
-                }
-                catch 
-                {#we couldn't import the module
-                    Write-LogOutput -Category "ERROR" -LogFile $myvarOutputLogFile -Message "Unable to import the module BetterTls : $($_.Exception.Message)"
-                    Write-LogOutput -Category "WARNING" -LogFile $myvarOutputLogFile -Message "Please download and install from https://www.powershellgallery.com/packages/BetterTls/0.1.0.0"
-                    Exit
-                }
-            }#end catch
-        }
-        Write-LogOutput -Category "INFO" -LogFile $myvarOutputLogFile -Message "Disabling Tls..."
-        try 
-        {#disable old tls protocol
-            Disable-Tls -Tls -Confirm:$false -ErrorAction Stop
-        } 
-        catch 
-        {#couldn't disable old tls protocol
-            Write-LogOutput -Category "ERROR" -LogFile $myvarOutputLogFile -Message "Could not disable Tls : $($_.Exception.Message)"
-            Exit
-        }
-        Write-LogOutput -Category "INFO" -LogFile $myvarOutputLogFile -Message "Enabling Tls 1.2..."
-        try 
-        {#enable tls12
-            Enable-Tls -Tls12 -Confirm:$false -ErrorAction Stop
-        } 
-        catch 
-        {#couldn't enable tls12
-            Write-LogOutput -Category "ERROR" -LogFile $myvarOutputLogFile -Message "Could not enable Tls 1.2 : $($_.Exception.Message)"
-            Exit
-        }
+        Write-Host "$(Get-Date) [INFO] Adding Tls12 support" -ForegroundColor Green
+        [Net.ServicePointManager]::SecurityProtocol = `
+        ([Net.ServicePointManager]::SecurityProtocol -bor `
+        [Net.SecurityProtocolType]::Tls12)
     }
 
     end

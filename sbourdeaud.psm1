@@ -375,7 +375,14 @@ Will prompt for user credentials and create a file called prism-apiuser.txt in c
     {
         if (!$path)
         {
-            $path = "$Env:USERPROFILE\Documents\WindowsPowerShell\CustomCredentials"
+            if ($IsLinux -or $IsMacOS) 
+            {
+                $path = $home
+            }
+            else 
+            {
+                $path = "$Env:USERPROFILE\Documents\WindowsPowerShell\CustomCredentials"
+            }
             Write-Host "$(get-date) [INFO] Set path to $path" -ForegroundColor Green
         } 
     }
@@ -471,9 +478,16 @@ Will retrieve credentials from the file called prism-apiuser.txt in c:\creds
     {
         if (!$path)
         {
-            $path = "$Env:USERPROFILE\Documents\WindowsPowerShell\CustomCredentials"
+            if ($IsLinux -or $IsMacOS) 
+            {
+                $path = $home
+            }
+            else 
+            {
+                $path = "$Env:USERPROFILE\Documents\WindowsPowerShell\CustomCredentials"
+            }
             Write-Host "$(get-date) [INFO] Retrieving credentials from $path" -ForegroundColor Green
-        }
+        } 
     }
     process
     {
@@ -496,6 +510,7 @@ Will retrieve credentials from the file called prism-apiuser.txt in c:\creds
         return $customCredentials
     }
 }
+
 #endregion
 
 #region misc

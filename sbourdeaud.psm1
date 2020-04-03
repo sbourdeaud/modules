@@ -83,6 +83,203 @@ function Help-RESTError
 
     break
 }#end function Get-RESTError
+
+#function used to display progress with a percentage bar
+Function New-PercentageBar
+{
+	
+<#
+.SYNOPSIS
+	Create percentage bar.
+.DESCRIPTION
+	This cmdlet creates percentage bar.
+.PARAMETER Percent
+	Value in percents (%).
+.PARAMETER Value
+	Value in arbitrary units.
+.PARAMETER MaxValue
+	100% value.
+.PARAMETER BarLength
+	Bar length in chars.
+.PARAMETER BarView
+	Different char sets to build the bar.
+.PARAMETER GreenBorder
+	Percent value to change bar color from green to yellow (relevant with -DrawBar parameter only).
+.PARAMETER YellowBorder
+	Percent value to change bar color from yellow to red (relevant with -DrawBar parameter only).
+.PARAMETER NoPercent
+	Exclude percentage number from the bar.
+.PARAMETER DrawBar
+	Directly draw the colored bar onto the PowerShell console (unsuitable for calculated properties).
+.EXAMPLE
+	PS C:\> New-PercentageBar -Percent 90 -DrawBar
+	Draw single bar with all default settings.
+.EXAMPLE
+	PS C:\> New-PercentageBar -Percent 95 -DrawBar -GreenBorder 70 -YellowBorder 90
+	Draw the bar and move the both color change borders.
+.EXAMPLE
+	PS C:\> 85 |New-PercentageBar -DrawBar -NoPercent
+	Pipeline the percent value to the function and exclude percent number from the bar.
+.EXAMPLE
+	PS C:\> For ($i=0; $i -le 100; $i+=10) {New-PercentageBar -Percent $i -DrawBar -Length 100 -BarView AdvancedThin2; "`r"}
+	Demonstrates advanced bar view with custom bar length and different percent values.
+.EXAMPLE
+	PS C:\> $Folder = 'C:\reports\'
+	PS C:\> $FolderSize = (Get-ChildItem -Path $Folder |measure -Property Length -Sum).Sum
+	PS C:\> Get-ChildItem -Path $Folder -File |sort Length -Descending |select -First 10 |select Name,Length,@{N='SizeBar';E={New-PercentageBar -Value $_.Length -MaxValue $FolderSize}} |ft -au
+	Get file size report and add calculated property 'SizeBar' that contains the percent of each file size from the folder size.
+.EXAMPLE
+	PS C:\> $VolumeC = gwmi Win32_LogicalDisk |? {$_.DeviceID -eq 'c:'}
+	PS C:\> Write-Host -NoNewline "Volume C Usage:" -ForegroundColor Yellow; `
+	PS C:\> New-PercentageBar -Value ($VolumeC.Size-$VolumeC.Freespace) -MaxValue $VolumeC.Size -DrawBar; "`r"
+	Get system volume usage report.
+.NOTES
+	Author      :: Roman Gelman @rgelman75
+	Version 1.0 :: 04-Jul-2016 :: [Release] :: Publicly available
+.LINK
+	https://ps1code.com/2016/07/16/percentage-bar-powershell
+#>
+	
+	[CmdletBinding(DefaultParameterSetName = 'PERCENT')]
+	Param (
+		[Parameter(Mandatory, Position = 1, ValueFromPipeline, ParameterSetName = 'PERCENT')]
+		[ValidateRange(0, 100)]
+		[int]$Percent
+		 ,
+		[Parameter(Mandatory, Position = 1, ValueFromPipeline, ParameterSetName = 'VALUE')]
+		[ValidateRange(0, [double]::MaxValue)]
+		[double]$Value
+		 ,
+		[Parameter(Mandatory, Position = 2, ParameterSetName = 'VALUE')]
+		[ValidateRange(1, [double]::MaxValue)]
+		[double]$MaxValue
+		 ,
+		[Parameter(Mandatory = $false, Position = 3)]
+		[Alias("BarSize", "Length")]
+		[ValidateRange(10, 100)]
+		[int]$BarLength = 20
+		 ,
+		[Parameter(Mandatory = $false, Position = 4)]
+		[ValidateSet("SimpleThin", "SimpleThick1", "SimpleThick2", "AdvancedThin1", "AdvancedThin2", "AdvancedThick")]
+		[string]$BarView = "SimpleThin"
+		 ,
+		[Parameter(Mandatory = $false, Position = 5)]
+		[ValidateRange(50, 80)]
+		[int]$GreenBorder = 60
+		 ,
+		[Parameter(Mandatory = $false, Position = 6)]
+		[ValidateRange(80, 90)]
+		[int]$YellowBorder = 80
+		 ,
+		[Parameter(Mandatory = $false)]
+		[switch]$NoPercent
+		 ,
+		[Parameter(Mandatory = $false)]
+		[switch]$DrawBar
+	)
+	
+	Begin
+	{
+		
+		If ($PSBoundParameters.ContainsKey('VALUE'))
+		{
+			
+			If ($Value -gt $MaxValue)
+			{
+				Throw "The [-Value] parameter cannot be greater than [-MaxValue]!"
+			}
+			Else
+			{
+				$Percent = $Value/$MaxValue * 100 -as [int]
+			}
+		}
+		
+		If ($YellowBorder -le $GreenBorder) { Throw "The [-YellowBorder] value must be greater than [-GreenBorder]!" }
+		
+		Function Set-BarView ($View)
+		{
+			Switch -exact ($View)
+			{
+				"SimpleThin"	{ $GreenChar = [char]9632; $YellowChar = [char]9632; $RedChar = [char]9632; $EmptyChar = "-"; Break }
+				"SimpleThick1"	{ $GreenChar = [char]9608; $YellowChar = [char]9608; $RedChar = [char]9608; $EmptyChar = "-"; Break }
+				"SimpleThick2"	{ $GreenChar = [char]9612; $YellowChar = [char]9612; $RedChar = [char]9612; $EmptyChar = "-"; Break }
+				"AdvancedThin1"	{ $GreenChar = [char]9632; $YellowChar = [char]9632; $RedChar = [char]9632; $EmptyChar = [char]9476; Break }
+				"AdvancedThin2"	{ $GreenChar = [char]9642; $YellowChar = [char]9642; $RedChar = [char]9642; $EmptyChar = [char]9643; Break }
+				"AdvancedThick"	{ $GreenChar = [char]9617; $YellowChar = [char]9618; $RedChar = [char]9619; $EmptyChar = [char]9482; Break }
+			}
+			$Properties = [ordered]@{
+				Char1 = $GreenChar
+				Char2 = $YellowChar
+				Char3 = $RedChar
+				Char4 = $EmptyChar
+			}
+			$Object = New-Object PSObject -Property $Properties
+			$Object
+		} #End Function Set-BarView
+		
+		$BarChars = Set-BarView -View $BarView
+		$Bar = $null
+		
+		Function Draw-Bar
+		{
+			
+			Param (
+				[Parameter(Mandatory)]
+				[string]$Char
+				 ,
+				[Parameter(Mandatory = $false)]
+				[string]$Color = 'White'
+				 ,
+				[Parameter(Mandatory = $false)]
+				[boolean]$Draw
+			)
+			
+			If ($Draw)
+			{
+				Write-Host -NoNewline -ForegroundColor ([System.ConsoleColor]$Color) $Char
+			}
+			Else
+			{
+				return $Char
+			}
+			
+		} #End Function Draw-Bar
+		
+	} #End Begin
+	
+	Process
+	{
+		
+		If ($NoPercent)
+		{
+			$Bar += Draw-Bar -Char "[ " -Draw $DrawBar
+		}
+		Else
+		{
+			If ($Percent -eq 100) { $Bar += Draw-Bar -Char "$Percent% [ " -Draw $DrawBar }
+			ElseIf ($Percent -ge 10) { $Bar += Draw-Bar -Char " $Percent% [ " -Draw $DrawBar }
+			Else { $Bar += Draw-Bar -Char "  $Percent% [ " -Draw $DrawBar }
+		}
+		
+		For ($i = 1; $i -le ($BarValue = ([Math]::Round($Percent * $BarLength / 100))); $i++)
+		{
+			
+			If ($i -le ($GreenBorder * $BarLength / 100)) { $Bar += Draw-Bar -Char ($BarChars.Char1) -Color 'DarkGreen' -Draw $DrawBar }
+			ElseIf ($i -le ($YellowBorder * $BarLength / 100)) { $Bar += Draw-Bar -Char ($BarChars.Char2) -Color 'Yellow' -Draw $DrawBar }
+			Else { $Bar += Draw-Bar -Char ($BarChars.Char3) -Color 'Red' -Draw $DrawBar }
+		}
+		For ($i = 1; $i -le ($EmptyValue = $BarLength - $BarValue); $i++) { $Bar += Draw-Bar -Char ($BarChars.Char4) -Draw $DrawBar }
+		$Bar += Draw-Bar -Char " ]" -Draw $DrawBar
+		
+	} #End Process
+	
+	End
+	{
+		If (!$DrawBar) { return $Bar }
+	} #End End
+	
+} #EndFunction New-PercentageBar
+
 #endregion
 
 #region prism
@@ -337,6 +534,82 @@ Gets status for a given Prism task uuid
         return $result
     }
 }#end function Get-NTNXTask
+
+Function Get-PrismTaskStatus
+{
+    <#
+.SYNOPSIS
+Retrieves the status of a given task uuid from Prism and loops until it is completed.
+
+.DESCRIPTION
+Retrieves the status of a given task uuid from Prism and loops until it is completed.
+
+.PARAMETER Task
+Prism task uuid.
+
+.NOTES
+Author: Stephane Bourdeaud (sbourdeaud@nutanix.com)
+
+.EXAMPLE
+.\Get-PrismTaskStatus -Task $task
+Prints progress on task $task until successfull completion. If the task fails, print the status and error code and details and exits.
+
+.LINK
+https://github.com/sbourdeaud
+#>
+[CmdletBinding(DefaultParameterSetName = 'None')] #make this function advanced
+
+    param
+    (
+        [Parameter(Mandatory)]
+        $task
+    )
+
+    begin
+    {}
+    process 
+    {
+        #region get initial task details
+            Write-LogOutput -Category "INFO" -LogFile $myvarOutputLogFile -Message "Retrieving details of task $task..."
+            $url = "https://$($cluster):9440/PrismGateway/services/rest/v2.0/tasks/$task"
+            $method = "GET"
+            $taskDetails = Invoke-PrismRESTCall -method $method -url $url -credential $prismCredentials
+            Write-LogOutput -Category "SUCCESS" -LogFile $myvarOutputLogFile -Message "Retrieved details of task $task"
+        #endregion
+
+        if ($taskDetails.percentage_complete -ne "100") 
+        {
+            Do 
+            {
+                New-PercentageBar -Percent $taskDetails.percentage_complete -DrawBar -Length 100 -BarView AdvancedThin2; "`r"
+                Sleep 5
+                $url = "https://$($cluster):9440/PrismGateway/services/rest/v2.0/tasks/$task"
+                $method = "GET"
+                $taskDetails = Invoke-PrismRESTCall -method $method -url $url -credential $prismCredentials
+                
+                if ($taskDetails.status -ne "running") 
+                {
+                    if ($taskDetails.status -ne "succeeded") 
+                    {
+                        Write-LogOutput -Category "ERROR" -LogFile $myvarOutputLogFile -Message "Task $($taskDetails.meta_request.method_name) failed with the following status and error code : $($taskDetails.progress_status) : $($taskDetails.meta_response.error_code)"
+                        Exit
+                    }
+                }
+            }
+            While ($taskDetails.percentage_complete -ne "100")
+            
+            New-PercentageBar -Percent $taskDetails.percentage_complete -DrawBar -Length 100 -BarView AdvancedThin2; "`r"
+            Write-LogOutput -Category "SUCCESS" -LogFile $myvarOutputLogFile -Message "Task $($taskDetails.meta_request.method_name) completed successfully!"
+        } 
+        else 
+        {
+            New-PercentageBar -Percent $taskDetails.percentage_complete -DrawBar -Length 100 -BarView AdvancedThin2; "`r"
+            Write-LogOutput -Category "SUCCESS" -LogFile $myvarOutputLogFile -Message "Task $($taskDetails.meta_request.method_name) completed successfully!"
+        }
+    }
+    end
+    {}
+}
 #endregion
 
 #region credentials
@@ -565,6 +838,175 @@ end
 }
 
 } #end Write-CustomPrompt function
+
+Function Write-Menu
+{
+	
+<#
+.SYNOPSIS
+	Display custom menu in the PowerShell console.
+.DESCRIPTION
+	The Write-Menu cmdlet creates numbered and colored menues
+	in the PS console window and returns the choiced entry.
+.PARAMETER Menu
+	Menu entries.
+.PARAMETER PropertyToShow
+	If your menu entries are objects and not the strings
+	this is property to show as entry.
+.PARAMETER Prompt
+	User prompt at the end of the menu.
+.PARAMETER Header
+	Menu title (optional).
+.PARAMETER Shift
+	Quantity of <TAB> keys to shift the menu items right.
+.PARAMETER TextColor
+	Menu text color.
+.PARAMETER HeaderColor
+	Menu title color.
+.PARAMETER AddExit
+	Add 'Exit' as very last entry.
+.EXAMPLE
+	PS C:\> Write-Menu -Menu "Open","Close","Save" -AddExit -Shift 1
+	Simple manual menu with 'Exit' entry and 'one-tab' shift.
+.EXAMPLE
+	PS C:\> Write-Menu -Menu (Get-ChildItem 'C:\Windows\') -Header "`t`t-- File list --`n" -Prompt 'Select any file'
+	Folder content dynamic menu with the header and custom prompt.
+.EXAMPLE
+	PS C:\> Write-Menu -Menu (Get-Service) -Header ":: Services list ::`n" -Prompt 'Select any service' -PropertyToShow DisplayName
+	Display local services menu with custom property 'DisplayName'.
+.EXAMPLE
+	PS C:\> Write-Menu -Menu (Get-Process |select *) -PropertyToShow ProcessName |fl
+	Display full info about choicen process.
+.INPUTS
+	Any type of data (object(s), string(s), number(s), etc).
+.OUTPUTS
+	[The same type as input object] Single menu item.
+.NOTES
+	Author      :: Roman Gelman @rgelman75
+	Version 1.0 :: 21-Apr-2016 :: [Release] :: Publicly available
+	Version 1.1 :: 03-Nov-2016 :: [Change] :: Supports a single item as menu entry
+	Version 1.2 :: 22-Jun-2017 :: [Change] :: Throws an error if property, specified by -PropertyToShow does not exist. Code optimization
+	Version 1.3 :: 27-Sep-2017 :: [Bugfix] :: Fixed throwing an error while menu entries are numeric values
+.LINK
+	https://ps1code.com/2016/04/21/write-menu-powershell
+#>
+	
+	[CmdletBinding()]
+	[Alias("menu")]
+	Param (
+		[Parameter(Mandatory, Position = 0)]
+		[Alias("MenuEntry", "List")]
+		$Menu
+		 ,
+		[Parameter(Mandatory = $false, Position = 1)]
+		[string]$PropertyToShow = 'Name'
+		 ,
+		[Parameter(Mandatory = $false, Position = 2)]
+		[ValidateNotNullorEmpty()]
+		[string]$Prompt = 'Pick a choice'
+		 ,
+		[Parameter(Mandatory = $false, Position = 3)]
+		[Alias("Title")]
+		[string]$Header = ''
+		 ,
+		[Parameter(Mandatory = $false, Position = 4)]
+		[ValidateRange(0, 5)]
+		[Alias("Tab", "MenuShift")]
+		[int]$Shift = 0
+		 ,
+		[Parameter(Mandatory = $false, Position = 5)]
+		[Alias("Color", "MenuColor")]
+		[System.ConsoleColor]$TextColor = 'White'
+		 ,
+		[Parameter(Mandatory = $false, Position = 6)]
+		[System.ConsoleColor]$HeaderColor = 'Yellow'
+		 ,
+		[Parameter(Mandatory = $false)]
+		[ValidateNotNullorEmpty()]
+		[Alias("Exit", "AllowExit")]
+		[switch]$AddExit
+	)
+	
+	Begin
+	{
+		$ErrorActionPreference = 'Stop'
+		if ($Menu -isnot [array]) { $Menu = @($Menu) }
+		if ($Menu[0] -is [psobject] -and $Menu[0] -isnot [string])
+		{
+			if (!($Menu | Get-Member -MemberType Property, NoteProperty -Name $PropertyToShow)) { Throw "Property [$PropertyToShow] does not exist" }
+		}
+		$MaxLength = if ($AddExit) { 8 }
+		else { 9 }
+		$AddZero = if ($Menu.Length -gt $MaxLength) { $true }
+		else { $false }
+		[hashtable]$htMenu = @{ }
+	}
+	Process
+	{
+		### Write menu header ###
+		if ($Header -ne '') { Write-Host $Header -ForegroundColor $HeaderColor }
+		
+		### Create shift prefix ###
+		if ($Shift -gt 0) { $Prefix = [string]"`t" * $Shift }
+		
+		### Build menu hash table ###
+		for ($i = 1; $i -le $Menu.Length; $i++)
+		{
+			$Key = if ($AddZero)
+			{
+				$lz = if ($AddExit) { ([string]($Menu.Length + 1)).Length - ([string]$i).Length }
+				else { ([string]$Menu.Length).Length - ([string]$i).Length }
+				"0" * $lz + "$i"
+			}
+			else
+			{
+				"$i"
+			}
+			
+			$htMenu.Add($Key, $Menu[$i - 1])
+			
+			if ($Menu[$i] -isnot 'string' -and ($Menu[$i - 1].$PropertyToShow))
+			{
+				Write-Host "$Prefix[$Key] $($Menu[$i - 1].$PropertyToShow)" -ForegroundColor $TextColor
+			}
+			else
+			{
+				Write-Host "$Prefix[$Key] $($Menu[$i - 1])" -ForegroundColor $TextColor
+			}
+		}
+		
+		### Add 'Exit' row ###
+		if ($AddExit)
+		{
+			[string]$Key = $Menu.Length + 1
+			$htMenu.Add($Key, "Exit")
+			Write-Host "$Prefix[$Key] Exit" -ForegroundColor $TextColor
+		}
+		
+		### Pick a choice ###
+		Do
+		{
+			$Choice = Read-Host -Prompt $Prompt
+			$KeyChoice = if ($AddZero)
+			{
+				$lz = if ($AddExit) { ([string]($Menu.Length + 1)).Length - $Choice.Length }
+				else { ([string]$Menu.Length).Length - $Choice.Length }
+				if ($lz -gt 0) { "0" * $lz + "$Choice" }
+				else { $Choice }
+			}
+			else
+			{
+				$Choice
+			}
+		}
+		Until ($htMenu.ContainsKey($KeyChoice))
+	}
+	End
+	{
+		return $htMenu.get_Item($KeyChoice)
+	}
+	
+} #EndFunction Write-Menu
 #endregion
 
 #region posh and dotnet configuration

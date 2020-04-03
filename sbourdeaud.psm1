@@ -562,7 +562,15 @@ https://github.com/sbourdeaud
     param
     (
         [Parameter(Mandatory)]
-        $task
+        $task,
+        
+        [parameter(mandatory = $true)]
+        [System.Management.Automation.PSCredential]
+        $credential,
+
+        [parameter(mandatory = $true)]
+        [String]
+        $cluster
     )
 
     begin
@@ -570,11 +578,11 @@ https://github.com/sbourdeaud
     process 
     {
         #region get initial task details
-            Write-LogOutput -Category "INFO" -LogFile $myvarOutputLogFile -Message "Retrieving details of task $task..."
+            Write-Host "$(Get-Date) [INFO] Retrieving details of task $task..." -ForegroundColor Green
             $url = "https://$($cluster):9440/PrismGateway/services/rest/v2.0/tasks/$task"
             $method = "GET"
-            $taskDetails = Invoke-PrismRESTCall -method $method -url $url -credential $prismCredentials
-            Write-LogOutput -Category "SUCCESS" -LogFile $myvarOutputLogFile -Message "Retrieved details of task $task"
+            $taskDetails = Invoke-PrismAPICall -method $method -url $url -credential $credential
+            Write-Host "$(Get-Date) [SUCCESS] Retrieved details of task $task" -ForegroundColor Cyan
         #endregion
 
         if ($taskDetails.percentage_complete -ne "100") 
@@ -585,26 +593,25 @@ https://github.com/sbourdeaud
                 Sleep 5
                 $url = "https://$($cluster):9440/PrismGateway/services/rest/v2.0/tasks/$task"
                 $method = "GET"
-                $taskDetails = Invoke-PrismRESTCall -method $method -url $url -credential $prismCredentials
+                $taskDetails = Invoke-PrismAPICall -method $method -url $url -credential $credential
                 
                 if ($taskDetails.status -ne "running") 
                 {
                     if ($taskDetails.status -ne "succeeded") 
                     {
-                        Write-LogOutput -Category "ERROR" -LogFile $myvarOutputLogFile -Message "Task $($taskDetails.meta_request.method_name) failed with the following status and error code : $($taskDetails.progress_status) : $($taskDetails.meta_response.error_code)"
-                        Exit
+                        Throw "$(Get-Date) [INFO] Task $($taskDetails.meta_request.method_name) failed with the following status and error code : $($taskDetails.progress_status) : $($taskDetails.meta_response.error_code)"
                     }
                 }
             }
             While ($taskDetails.percentage_complete -ne "100")
             
             New-PercentageBar -Percent $taskDetails.percentage_complete -DrawBar -Length 100 -BarView AdvancedThin2; "`r"
-            Write-LogOutput -Category "SUCCESS" -LogFile $myvarOutputLogFile -Message "Task $($taskDetails.meta_request.method_name) completed successfully!"
+            Write-Host "$(Get-Date) [SUCCESS] Task $($taskDetails.meta_request.method_name) completed successfully!" -ForegroundColor Cyan
         } 
         else 
         {
             New-PercentageBar -Percent $taskDetails.percentage_complete -DrawBar -Length 100 -BarView AdvancedThin2; "`r"
-            Write-LogOutput -Category "SUCCESS" -LogFile $myvarOutputLogFile -Message "Task $($taskDetails.meta_request.method_name) completed successfully!"
+            Write-Host "$(Get-Date) [SUCCESS] Task $($taskDetails.meta_request.method_name) completed successfully!" -ForegroundColor Cyan
         }
     }
     end

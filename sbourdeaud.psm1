@@ -617,6 +617,94 @@ https://github.com/sbourdeaud
     end
     {}
 }
+
+Function Get-PrismCentralTaskStatus
+{
+    <#
+.SYNOPSIS
+Retrieves the status of a given task uuid from Prism and loops until it is completed.
+
+.DESCRIPTION
+Retrieves the status of a given task uuid from Prism and loops until it is completed.
+
+.PARAMETER Task
+Prism task uuid.
+
+.NOTES
+Author: Stephane Bourdeaud (sbourdeaud@nutanix.com)
+
+.EXAMPLE
+.\Get-PrismCentralTaskStatus -Task $task -cluster $cluster -credential $prismCredentials
+Prints progress on task $task until successfull completion. If the task fails, print the status and error code and details and exits.
+
+.LINK
+https://github.com/sbourdeaud
+#>
+[CmdletBinding(DefaultParameterSetName = 'None')] #make this function advanced
+
+    param
+    (
+        [Parameter(Mandatory)]
+        $task,
+        
+        [parameter(mandatory = $true)]
+        [System.Management.Automation.PSCredential]
+        $credential,
+
+        [parameter(mandatory = $true)]
+        [String]
+        $cluster
+    )
+
+    begin
+    {
+        $url = "https://$($cluster):9440/api/nutanix/v3/tasks/$task"
+        $method = "GET"
+    }
+    process 
+    {
+        #region get initial task details
+            Write-Host "$(Get-Date) [INFO] Retrieving details of task $task..." -ForegroundColor Green
+            $taskDetails = Invoke-PrismAPICall -method $method -url $url -credential $credential
+            Write-Host "$(Get-Date) [SUCCESS] Retrieved details of task $task" -ForegroundColor Cyan
+        #endregion
+
+        if ($taskDetails.percentage_complete -ne "100") 
+        {
+            Do 
+            {
+                New-PercentageBar -Percent $taskDetails.percentage_complete -DrawBar -Length 100 -BarView AdvancedThin2; "`r"
+                Sleep 5
+                $taskDetails = Invoke-PrismAPICall -method $method -url $url -credential $credential
+                
+                if ($taskDetails.status -ne "running") 
+                {
+                    if ($taskDetails.status -ne "succeeded") 
+                    {
+                        Write-Host "$(Get-Date) [WARNING] Task $($taskDetails.operation_type) failed with the following status and error code : $($taskDetails.status) : $($taskDetails.progress_message)" -ForegroundColor Yellow
+                    }
+                }
+            }
+            While ($taskDetails.percentage_complete -ne "100")
+            
+            New-PercentageBar -Percent $taskDetails.percentage_complete -DrawBar -Length 100 -BarView AdvancedThin2; "`r"
+            Write-Host "$(Get-Date) [SUCCESS] Task $($taskDetails.operation_type) completed successfully!" -ForegroundColor Cyan
+        } 
+        else 
+        {
+            if ($taskDetails.status -ne "succeeded") {
+                Write-Host "$(Get-Date) [WARNING] Task $($taskDetails.operation_type) status is $($taskDetails.status): $($taskDetails.progress_message)" -ForegroundColor Yellow
+            } else {
+                New-PercentageBar -Percent $taskDetails.percentage_complete -DrawBar -Length 100 -BarView AdvancedThin2; "`r"
+                Write-Host "$(Get-Date) [SUCCESS] Task $($taskDetails.operation_type) completed successfully!" -ForegroundColor Cyan
+            }
+        }
+    }
+    end
+    {
+        return $taskDetails.status
+    }
+}
 #endregion
 
 #region credentials

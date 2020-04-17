@@ -327,12 +327,7 @@ param
 
 begin
 {
-    if (($PSVersionTable.PSVersion.Major -gt 5) -and (!$credential)) {
-        throw "$(get-date) [ERROR] You must specify a credential object when using Powershell Core!"
-    }
-    if (($PSVersionTable.PSVersion.Major -le 5) -and (!$username) -and (!$password))  {
-        throw "$(get-date) [ERROR] You must specify a username and password (as a secure string)!"
-    }   
+    
 }
 process
 {
@@ -350,8 +345,10 @@ process
                 $resp = Invoke-RestMethod -Method $method -Uri $url -Headers $headers -SkipCertificateCheck -SslProtocol Tls12 -Authentication Basic -Credential $credential -ErrorAction Stop
             }
         } else {
+            $username = $credential.UserName
+            $password = $credential.Password
             $headers = @{
-                "Authorization" = "Basic "+[System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($username+":"+([System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($PrismSecurePassword))) ));
+                "Authorization" = "Basic "+[System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($username+":"+([System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($password))) ));
                 "Content-Type"="application/json";
                 "Accept"="application/json"
             }

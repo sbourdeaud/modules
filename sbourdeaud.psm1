@@ -592,9 +592,9 @@ https://github.com/sbourdeaud
                 $method = "GET"
                 $taskDetails = Invoke-PrismAPICall -method $method -url $url -credential $credential
                 
-                if ($taskDetails.status -ne "running") 
+                if ($taskDetails.status -ine "running") 
                 {
-                    if ($taskDetails.status -ne "succeeded") 
+                    if ($taskDetails.status -ine "succeeded") 
                     {
                         Throw "$(Get-Date) [INFO] Task $($taskDetails.meta_request.method_name) failed with the following status and error code : $($taskDetails.progress_status) : $($taskDetails.meta_response.error_code)"
                     }

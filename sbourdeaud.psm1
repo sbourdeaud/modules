@@ -34,7 +34,7 @@ https://github.com/sbourdeaud
 	param
 	(
 		[Parameter(Mandatory)]
-        [ValidateSet('INFO','WARNING','ERROR','SUM','SUCCESS','STEP','DEBUG')]
+        [ValidateSet('INFO','WARNING','ERROR','SUM','SUCCESS','STEP','DEBUG','DATA')]
         [string]
         $Category,
 
@@ -58,6 +58,7 @@ https://github.com/sbourdeaud
             "SUCCESS" {$FgColor = "Cyan"}
             "STEP" {$FgColor = "Magenta"}
             "DEBUG" {$FgColor = "White"}
+            "DATA" {$FgColor = "Gray"}
         }
 
 	    Write-Host -ForegroundColor $FgColor "$Date [$category] $Message" #write the entry on the screen
@@ -280,6 +281,99 @@ Function New-PercentageBar
 	
 } #EndFunction New-PercentageBar
 
+#this function is used to compare versions of a given module
+function CheckModule
+{
+    param 
+    (
+        [string] $module,
+        [string] $version
+    )
+
+    #getting version of installed module
+    $current_version = (Get-Module -ListAvailable $module) | Sort-Object Version -Descending  | Select-Object Version -First 1
+    #converting version to string
+    $stringver = $current_version | Select-Object @{n='ModuleVersion'; e={$_.Version -as [string]}}
+    $a = $stringver | Select-Object Moduleversion -ExpandProperty Moduleversion
+    #converting version to string
+    $targetver = $version | select @{n='TargetVersion'; e={$_ -as [string]}}
+    $b = $targetver | Select-Object TargetVersion -ExpandProperty TargetVersion
+    
+    if ([version]"$a" -ge [version]"$b") {
+        return $true
+    }
+    else {
+        return $false
+    }
+}
+
+function LoadModule
+{#tries to load a module, import it, install it if necessary
+<#
+.SYNOPSIS
+Tries to load the specified module and installs it if it can't.
+.DESCRIPTION
+Tries to load the specified module and installs it if it can't.
+.NOTES
+Author: Stephane Bourdeaud
+.PARAMETER module
+Name of PowerShell module to import.
+.EXAMPLE
+PS> LoadModule -module PSWriteHTML
+#>
+param 
+(
+    [string] $module
+)
+
+begin
+{
+    
+}
+
+process
+{   
+    Write-LogOutput -Category "INFO" -LogFile $myvar_log_file -Message "Trying to get module $($module)..."
+    if (!(Get-Module -Name $module)) 
+    {#we could not get the module, let's try to load it
+        try
+        {#import the module
+            Import-Module -Name $module -ErrorAction Stop
+            Write-LogOutput -Category "SUCCESS" -LogFile $myvar_log_file -Message "Imported module '$($module)'!"
+        }#end try
+        catch 
+        {#we couldn't import the module, so let's install it
+            Write-LogOutput -Category "INFO" -LogFile $myvar_log_file -Message "Installing module '$($module)' from the Powershell Gallery..."
+            try 
+            {#install module
+                Install-Module -Name $module -Scope CurrentUser -Force -ErrorAction Stop
+            }
+            catch 
+            {#could not install module
+                Write-LogOutput -Category "ERROR" -LogFile $myvar_log_file -Message "Could not install module '$($module)': $($_.Exception.Message)"
+                exit 1
+            }
+
+            try
+            {#now that it is intalled, let's import it
+                Import-Module -Name $module -ErrorAction Stop
+                Write-LogOutput -Category "SUCCESS" -LogFile $myvar_log_file -Message "Imported module '$($module)'!"
+            }#end try
+            catch 
+            {#we couldn't import the module
+                Write-LogOutput -Category "ERROR" -LogFile $myvar_log_file -Message "Unable to import the module $($module).psm1 : $($_.Exception.Message)"
+                Write-LogOutput -Category "WARNING" -LogFile $myvar_log_file -Message "Please download and install from https://www.powershellgallery.com"
+                Exit 1
+            }#end catch
+        }#end catch
+    }
+}
+
+end
+{
+
+}
+}
 #endregion
 
 #region prism
@@ -592,9 +686,9 @@ https://github.com/sbourdeaud
                 $method = "GET"
                 $taskDetails = Invoke-PrismAPICall -method $method -url $url -credential $credential
                 
-                if ($taskDetails.status -ine "running") 
+                if ($taskDetails.progress_status -ine "running") 
                 {
-                    if ($taskDetails.status -ine "succeeded") 
+                    if ($taskDetails.progress_status -ine "succeeded") 
                     {
                         Throw "$(Get-Date) [INFO] Task $($taskDetails.meta_request.method_name) failed with the following status and error code : $($taskDetails.progress_status) : $($taskDetails.meta_response.error_code)"
                     }

@@ -676,7 +676,7 @@ https://github.com/sbourdeaud
             Write-Host "$(Get-Date) [INFO] Retrieving details of task $task..." -ForegroundColor Green
             $url = "https://$($cluster):9440/PrismGateway/services/rest/v2.0/tasks/$task"
             $method = "GET"
-            $taskDetails = Invoke-PrismAPICall -method $method -url $url -credential $credential
+            $taskDetails = Invoke-PrismAPICall -method $method -url $url -credential $credential -checking_task_status
             Write-Host "$(Get-Date) [SUCCESS] Retrieved details of task $task" -ForegroundColor Cyan
         #endregion
 
@@ -684,11 +684,12 @@ https://github.com/sbourdeaud
         {
             Do 
             {
-                New-PercentageBar -Percent $taskDetails.percentage_complete -DrawBar -Length 100 -BarView AdvancedThin2; "`r"
+                New-PercentageBar -Percent $taskDetails.percentage_complete -DrawBar -Length 100 -BarView AdvancedThin2
+                $Host.UI.RawUI.CursorPosition = New-Object System.Management.Automation.Host.Coordinates 2,$Host.UI.RawUI.CursorPosition.Y
                 Sleep 5
                 $url = "https://$($cluster):9440/PrismGateway/services/rest/v2.0/tasks/$task"
                 $method = "GET"
-                $taskDetails = Invoke-PrismAPICall -method $method -url $url -credential $credential
+                $taskDetails = Invoke-PrismAPICall -method $method -url $url -credential $credential -checking_task_status
                 
                 if ($taskDetails.progress_status -ine "running") 
                 {
@@ -700,12 +701,14 @@ https://github.com/sbourdeaud
             }
             While ($taskDetails.percentage_complete -ne "100")
             
-            New-PercentageBar -Percent $taskDetails.percentage_complete -DrawBar -Length 100 -BarView AdvancedThin2; "`r"
+            New-PercentageBar -Percent $taskDetails.percentage_complete -DrawBar -Length 100 -BarView AdvancedThin2
+            Write-Host ""
             Write-Host "$(Get-Date) [SUCCESS] Task $($taskDetails.meta_request.method_name) completed successfully!" -ForegroundColor Cyan
         } 
         else 
         {
-            New-PercentageBar -Percent $taskDetails.percentage_complete -DrawBar -Length 100 -BarView AdvancedThin2; "`r"
+            New-PercentageBar -Percent $taskDetails.percentage_complete -DrawBar -Length 100 -BarView AdvancedThin2
+            Write-Host ""
             Write-Host "$(Get-Date) [SUCCESS] Task $($taskDetails.meta_request.method_name) completed successfully!" -ForegroundColor Cyan
         }
     }
@@ -801,6 +804,184 @@ https://github.com/sbourdeaud
     end
     {
         return $taskDetails.status
+    }
+}
+
+function Get-PrismCentralObjectList
+{#retrieves multiple pages of Prism REST objects v3
+    [CmdletBinding()]
+    param 
+    (
+        [Parameter(mandatory = $true)][string] $pc,
+        [Parameter(mandatory = $true)][string] $object,
+        [Parameter(mandatory = $true)][string] $kind
+    )
+
+    begin 
+    {
+        if (!$length) {$length = 100} #we may not inherit the $length variable; if that is the case, set it to 100 objects per page
+        $total, $cumulated, $first, $last, $offset = 0 #those are used to keep track of how many objects we have processed
+        [System.Collections.ArrayList]$myvarResults = New-Object System.Collections.ArrayList($null) #this is variable we will use to keep track of entities
+        $url = "https://{0}:9440/api/nutanix/v3/{1}/list" -f $pc,$object
+        $method = "POST"
+        $content = @{
+            kind=$kind;
+            offset=0;
+            length=$length
+        }
+        $payload = (ConvertTo-Json $content -Depth 4) #this is the initial payload at offset 0
+    }
+    
+    process 
+    {
+        Do {
+            try {
+                $resp = Invoke-PrismAPICall -method $method -url $url -payload $payload -credential $prismCredentials
+                
+                if ($total -eq 0) {$total = $resp.metadata.total_matches} #this is the first time we go thru this loop, so let's assign the total number of objects
+                $first = $offset #this is the first object for this iteration
+                $last = $offset + ($resp.entities).count #this is the last object for this iteration
+                if ($total -le $length)
+                {#we have less objects than our specified length
+                    $cumulated = $total
+                }
+                else 
+                {#we have more objects than our specified length, so let's increment cumulated
+                    $cumulated += ($resp.entities).count
+                }
+                
+                Write-Host "$(Get-Date) [INFO] Processing results from $(if ($first) {$first} else {"0"}) to $($last) out of $($total)" -ForegroundColor Green
+                if ($debugme) {Write-Host "$(Get-Date) [DEBUG] Response Metadata: $($resp.metadata | ConvertTo-Json)" -ForegroundColor White}
+    
+                #grab the information we need in each entity
+                ForEach ($entity in $resp.entities) {                
+                    $myvarResults.Add($entity) | Out-Null
+                }
+                
+                $offset = $last #let's increment our offset
+                #prepare the json payload for the next batch of entities/response
+                $content = @{
+                    kind=$kind;
+                    offset=$offset;
+                    length=$length
+                }
+                $payload = (ConvertTo-Json $content -Depth 4)
+            }
+            catch {
+                $saved_error = $_.Exception.Message
+                # Write-Host "$(Get-Date) [INFO] Headers: $($headers | ConvertTo-Json)"
+                if ($payload) {Write-Host "$(Get-Date) [INFO] Payload: $payload" -ForegroundColor Green}
+                Throw "$(get-date) [ERROR] $saved_error"
+            }
+            finally {
+                #add any last words here; this gets processed no matter what
+            }
+        }
+        While ($last -lt $total)
+    }
+    
+    end 
+    {
+        return $myvarResults
+    }
+}
+
+function Get-GroupsObjectList
+{#retrieves multiple pages of Prism REST objects using the (undocumented) v3 groups endpoint with the specified attributes
+    [CmdletBinding()]
+    param 
+    (
+        [Parameter(mandatory = $true)][string] $prism,
+        [Parameter(mandatory = $true)][string] $attributes
+    )
+
+    begin 
+    {
+        if (!$length) {$length = 100} #we may not inherit the $length variable; if that is the case, set it to 100 objects per page
+        $total = 0
+        $cumulated = 0
+        $page_offset = 0 #those are used to keep track of how many objects we have processed
+        [System.Collections.ArrayList]$myvarResults = New-Object System.Collections.ArrayList($null) #this is variable we will use to keep track of entities
+        $url = "https://{0}:9440/api/nutanix/v3/groups" -f $prism
+        $method = "POST"
+        $content = @{
+            entity_type="mh_vm";
+            query_name="";
+            grouping_attribute=" ";
+            group_count=3;
+            group_offset=0;
+            group_attributes=@();
+            group_member_count=$length;
+            group_member_offset=$page_offset;
+            group_member_sort_attribute="vm_name";
+            group_member_sort_order="ASCENDING";
+            group_member_attributes=@(
+                ForEach ($attribute in ($attributes -Split ","))
+                {
+                    @{attribute="$($attribute)"}
+                } 
+            )
+        }
+        $payload = (ConvertTo-Json $content -Depth 4) #this is the initial payload at offset 0
+    }
+    
+    process 
+    {
+        Do {
+            try {
+                $resp = Invoke-PrismAPICall -method $method -url $url -payload $payload -credential $prismCredentials
+                
+                if ($total -eq 0) 
+                {
+                    $total = $resp.group_results.total_entity_count
+                } #this is the first time we go thru this loop, so let's assign the total number of objects
+                $cumulated += $resp.group_results.entity_results.count
+                
+                Write-Host "$(Get-Date) [INFO] Processing results from $($page_offset) to $($cumulated) out of $($total)" -ForegroundColor Green
+    
+                #grab the information we need in each entity
+                ForEach ($entity in $resp.group_results.entity_results) {                
+                    $myvarResults.Add($entity) | Out-Null
+                }
+                
+                $page_offset += $length #let's increment our offset
+                #prepare the json payload for the next batch of entities/response
+                $content = @{
+                    entity_type="mh_vm";
+                    query_name="";
+                    grouping_attribute=" ";
+                    group_count=3;
+                    group_offset=0;
+                    group_attributes=@();
+                    group_member_count=$length;
+                    group_member_offset=$page_offset;
+                    group_member_sort_attribute="vm_name";
+                    group_member_sort_order="ASCENDING";
+                    group_member_attributes=@(
+                        ForEach ($attribute in ($attributes -Split ","))
+                        {
+                            @{attribute="$($attribute)"}
+                        } 
+                    )
+                }
+                $payload = (ConvertTo-Json $content -Depth 4)
+            }
+            catch {
+                $saved_error = $_.Exception.Message
+                # Write-Host "$(Get-Date) [INFO] Headers: $($headers | ConvertTo-Json)"
+                if ($payload) {Write-Host "$(Get-Date) [INFO] Payload: $payload" -ForegroundColor Green}
+                Throw "$(get-date) [ERROR] $saved_error"
+            }
+            finally {
+                #add any last words here; this gets processed no matter what
+            }
+        }
+        While ($cumulated -lt $total)
+    }
+    
+    end 
+    {
+        return $myvarResults
     }
 }
 #endregion

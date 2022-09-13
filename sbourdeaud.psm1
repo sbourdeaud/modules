@@ -892,7 +892,7 @@ function Get-GroupsObjectList
     param 
     (
         [Parameter(mandatory = $true)][string] $prism,
-        [Parameter(mandatory = $true)][string] $attributes
+        [Parameter(mandatory = $true)][string] $attributes #to find out which attributes are valid for a given object type (vms in this example), from a CVM, run the following command: arithmos_cli list_attributes_and_stats entity_type=vm
     )
 
     begin 

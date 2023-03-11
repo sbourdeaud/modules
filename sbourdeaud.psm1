@@ -1784,7 +1784,83 @@ function Invoke-HvQuery
 }#end function Invoke-HvQuery
 #endregion
 
+
 #region prism-v4
+function paginate
+{
+<#
+.SYNOPSIS
+  Paginates thru all available entities on the specified namespace and endpoint.
+.DESCRIPTION
+  Paginates thru all available entities on the specified namespace and endpoint.
+.NOTES
+  Author: Stephane Bourdeaud
+.PARAMETER pc
+  FQDN or IP of the Prism Central instance.
+.PARAMETER credential
+  PSCredential object to use for authentication.
+.PARAMETER namespace
+  Name of the API namespace (exp: vmm, clustermgmt, networking, ...).
+.PARAMETER api_version
+  Version of the API (exp: v4.0.a1)
+.PARAMETER api_endpoint
+  API endpoint and module (exp: /config/subnets)
+.EXAMPLE
+.\paginate -pc $mypc.mydomain.local -credential $MyCredObject -namespace "networking" -api_version "v4.0.a1" -api_endpoint "/config/subnets"
+Get all subnet entities retrieving them 25 at a time.
+#>
+param
+(
+    [parameter(mandatory = $true)]
+    [string] 
+    $pc,
+    
+    [parameter(mandatory = $true)]
+    [System.Management.Automation.PSCredential]
+    $credential,
+    
+    [parameter(mandatory = $true)]
+    [string] 
+    $namespace,
+
+    [parameter(mandatory = $true)]
+    [string] 
+    $api_version,
+
+    [parameter(mandatory = $true)]
+    [string] 
+    $api_endpoint
+)
+
+begin
+{}
+
+process 
+{
+    [System.Collections.ArrayList]$myvar_data = New-Object System.Collections.ArrayList($null) #this is variable we will use to keep track of entities
+    $page=0 #this will be incremented in the loop to deal with pagination
+    $total=0 #this will be used to keep track of how many entities total are available
+    Do
+    {
+        $url = "https://$($pc):9440/api/$($namespace)/$($api_version)$($api_endpoint)?`$page=$($page)&`$limit=$($limit)"
+        $response = Invoke-PrismAPICall -method "GET" -url $url -credential $credential
+        $total = $response.metadata.totalAvailableResults
+        #Write-Host "url: $($url), limit: $($limit), page: $($page), data count: $($response.data.count)"
+        ForEach ($entity in $response.data) {                
+            $myvar_data.Add($entity) | Out-Null
+        }
+        $entities = $myvar_data.count
+        $page += 1
+    }
+    While ($entities -lt $total)
+}
+
+end 
+{
+    return $myvar_data
+}
+}
+
 function Get-Pcv4Vms
 {
 <#
@@ -1821,32 +1897,222 @@ param
 
 begin
 {
-    [System.Collections.ArrayList]$myvar_data = New-Object System.Collections.ArrayList($null) #this is variable we will use to keep track of entities
-    $page=0
-    $total=0
+    $namespace = "vmm"
+    $api_version = "v4.0.a1"
+    $api_endpoint = "/ahv/config/vms"
 }
 process
 {
-    Do
-    {
-        $url = "https://$($pc):9440/api/vmm/v4.0.a1/ahv/config/vms?`$page=$($page)&`$limit=$($limit)"
-        $response = Invoke-PrismAPICall -method "GET" -url $url -credential $credential
-        $total = $response.metadata.totalAvailableResults
-        Write-Host "url: $($url), limit: $($limit), page: $($page), data count: $($response.data.count)"
-        ForEach ($entity in $response.data) {                
-            $myvar_data.Add($entity) | Out-Null
-        }
-        $entities = $myvar_data.count
-        $page += 1
-    }
-    While ($entities -lt $total)
+    $myvar_data = paginate -pc $pc -credential $credential -namespace $namespace -api_version $api_version -api_endpoint $api_endpoint
 }
 end
 {
     return $myvar_data
 } 
 }
+
+function Get-Pcv4Images
+{
+<#
+.SYNOPSIS
+  Gets all images from Prism Central using API v4.  Uses pagination and returns only the data section.
+.DESCRIPTION
+  Gets all images from Prism Central using API v4.  Uses pagination and returns only the data section.
+.NOTES
+  Author: Stephane Bourdeaud
+.PARAMETER pc
+  FQDN or IP of the Prism Central instance.
+.PARAMETER credential
+  PSCredential object to use for authentication.
+.PARAMETER limit
+  Number of objects you want to return with each request (defaults to 25).
+.EXAMPLE
+.\Get-Pcv4Images -pc $mypc.mydomain.local -credential $MyCredObject -limit 25
+Get all image entities retrieving them 25 at a time.
+#>
+param
+(
+    [parameter(mandatory = $true)]
+    [string] 
+    $pc,
+    
+    [parameter(mandatory = $true)]
+    [System.Management.Automation.PSCredential]
+    $credential,
+    
+    [parameter(mandatory = $false)]
+    [int] 
+    $limit=25
+)
+
+begin
+{
+    $namespace = "vmm"
+    $api_version = "v4.0.a1"
+    $api_endpoint = "/images"
+}
+process
+{
+    $myvar_data = paginate -pc $pc -credential $credential -namespace $namespace -api_version $api_version -api_endpoint $api_endpoint
+}
+end
+{
+    return $myvar_data
+} 
+}
+
+function Get-Pcv4Clusters
+{
+<#
+.SYNOPSIS
+  Gets all clusters (except the Unnamed instance which points to PC itself) from Prism Central using API v4.  Uses pagination and returns only the data section.
+.DESCRIPTION
+  Gets all clusters (except the Unnamed instance which points to PC itself)  from Prism Central using API v4.  Uses pagination and returns only the data section.
+.NOTES
+  Author: Stephane Bourdeaud
+.PARAMETER pc
+  FQDN or IP of the Prism Central instance.
+.PARAMETER credential
+  PSCredential object to use for authentication.
+.PARAMETER limit
+  Number of objects you want to return with each request (defaults to 25).
+.EXAMPLE
+.\Get-Pcv4Clusters -pc $mypc.mydomain.local -credential $MyCredObject -limit 25
+Get all cluster entities retrieving them 25 at a time.
+#>
+param
+(
+    [parameter(mandatory = $true)]
+    [string] 
+    $pc,
+    
+    [parameter(mandatory = $true)]
+    [System.Management.Automation.PSCredential]
+    $credential,
+    
+    [parameter(mandatory = $false)]
+    [int] 
+    $limit=25
+)
+
+begin
+{
+    $api_version = "v4.0.a1"
+    $namespace = "clustermgmt"
+    $api_endpoint = "/config/clusters"
+}
+process
+{
+    $myvar_data = paginate -pc $pc -credential $credential -namespace $namespace -api_version $api_version -api_endpoint $api_endpoint
+}
+end
+{
+    return $myvar_data | ?{$_.name -ne "Unnamed"} #excluding PC itself from that list of clusters
+} 
+}
+
+function Get-Pcv4Subnets
+{
+<#
+.SYNOPSIS
+  Gets all subnets from Prism Central using API v4.  Uses pagination and returns only the data section.
+.DESCRIPTION
+  Gets all subnets from Prism Central using API v4.  Uses pagination and returns only the data section.
+.NOTES
+  Author: Stephane Bourdeaud
+.PARAMETER pc
+  FQDN or IP of the Prism Central instance.
+.PARAMETER credential
+  PSCredential object to use for authentication.
+.PARAMETER limit
+  Number of subnet objects you want to return with each request (defaults to 25).
+.EXAMPLE
+.\Get-Pcv4Subnets -pc $mypc.mydomain.local -credential $MyCredObject -limit 25
+Get all subnet entities retrieving them 25 at a time.
+#>
+param
+(
+    [parameter(mandatory = $true)]
+    [string] 
+    $pc,
+    
+    [parameter(mandatory = $true)]
+    [System.Management.Automation.PSCredential]
+    $credential,
+    
+    [parameter(mandatory = $false)]
+    [int] 
+    $limit=25
+)
+
+begin
+{
+    $api_version = "v4.0.a1"
+    $namespace = "networking"
+    $api_endpoint = "/config/subnets"
+}
+process
+{
+    $myvar_data = paginate -pc $pc -credential $credential -namespace $namespace -api_version $api_version -api_endpoint $api_endpoint
+}
+end
+{
+    return $myvar_data
+} 
+}
+
+function Get-Pcv4StorageContainers
+{
+<#
+.SYNOPSIS
+  Gets all storage containers from Prism Central using API v4.  Uses pagination and returns only the data section.
+.DESCRIPTION
+  Gets all storage containers from Prism Central using API v4.  Uses pagination and returns only the data section.
+.NOTES
+  Author: Stephane Bourdeaud
+.PARAMETER pc
+  FQDN or IP of the Prism Central instance.
+.PARAMETER credential
+  PSCredential object to use for authentication.
+.PARAMETER limit
+  Number of objects you want to return with each request (defaults to 25).
+.EXAMPLE
+.\Get-Pcv4vStorageContainers -pc $mypc.mydomain.local -credential $MyCredObject -limit 25
+Get all storage containers entities retrieving them 25 at a time.
+#>
+param
+(
+    [parameter(mandatory = $true)]
+    [string] 
+    $pc,
+    
+    [parameter(mandatory = $true)]
+    [System.Management.Automation.PSCredential]
+    $credential,
+    
+    [parameter(mandatory = $false)]
+    [int] 
+    $limit=25
+)
+
+begin
+{
+    $api_version = "v4.0.a3"
+    $namespace = "storage"
+    $api_endpoint = "/config/storage-containers"
+}
+process
+{
+    $myvar_data = paginate -pc $pc -credential $credential -namespace $namespace -api_version $api_version -api_endpoint $api_endpoint
+}
+end
+{
+    return $myvar_data
+} 
+}
+
 #endregion prism-v4
+
 
 #endregion
 

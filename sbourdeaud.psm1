@@ -1784,6 +1784,70 @@ function Invoke-HvQuery
 }#end function Invoke-HvQuery
 #endregion
 
+#region prism-v4
+function Get-Pcv4Vms
+{
+<#
+.SYNOPSIS
+  Gets all virtual machines from Prism Central using API v4.  Uses pagination and returns only the data section.
+.DESCRIPTION
+  Gets all virtual machines from Prism Central using API v4.  Uses pagination and returns only the data section.
+.NOTES
+  Author: Stephane Bourdeaud
+.PARAMETER pc
+  FQDN or IP of the Prism Central instance.
+.PARAMETER credential
+  PSCredential object to use for authentication.
+.PARAMETER limit
+  Number of vm objects you want to return with each request (defaults to 25).
+.EXAMPLE
+.\Get-Pcv4Vms -pc $mypc.mydomain.local -credential $MyCredObject -limit 25
+Get all VM entities retrieving them 25 at a time.
+#>
+param
+(
+    [parameter(mandatory = $true)]
+    [string] 
+    $pc,
+    
+    [parameter(mandatory = $true)]
+    [System.Management.Automation.PSCredential]
+    $credential,
+    
+    [parameter(mandatory = $false)]
+    [int] 
+    $limit=25
+)
+
+begin
+{
+    [System.Collections.ArrayList]$myvar_data = New-Object System.Collections.ArrayList($null) #this is variable we will use to keep track of entities
+    $page=0
+    $total=0
+}
+process
+{
+    Do
+    {
+        $url = "https://$($pc):9440/api/vmm/v4.0.a1/ahv/config/vms?`$page=$($page)&`$limit=$($limit)"
+        $response = Invoke-PrismAPICall -method "GET" -url $url -credential $credential
+        $total = $response.metadata.totalAvailableResults
+        Write-Host "url: $($url), limit: $($limit), page: $($page), data count: $($response.data.count)"
+        ForEach ($entity in $response.data) {                
+            $myvar_data.Add($entity) | Out-Null
+        }
+        $entities = $myvar_data.count
+        $page += 1
+    }
+    While ($entities -lt $total)
+}
+end
+{
+    return $myvar_data
+} 
+}
+#endregion prism-v4
+
 #endregion
 
 New-Alias -Name Get-PrismRESTCall -value Invoke-PrismAPICall -Description "Invoke Nutanix Prism REST call."

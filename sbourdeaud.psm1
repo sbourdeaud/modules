@@ -284,6 +284,31 @@ Function New-PercentageBar
 #this function is used to compare versions of a given module
 function CheckModule
 {
+
+<#
+.SYNOPSIS
+Compares the current version of a module with the target version of a module.  Returns true or false.
+
+.DESCRIPTION
+Compares the current version of a module with the target version of a module.  Returns true or false.
+
+.PARAMETER Module
+Name of the module you want to check.
+
+.PARAMETER Version
+Desired version you want to compare against.  If the module is less than this version, this function will return false.
+
+.NOTES
+Author: Stephane Bourdeaud (sbourdeaud@nutanix.com)
+
+.EXAMPLE
+.\CheckModule -module sbourdeaud -version 1.0
+Makes sure module sbourdeaud is at least 1.0.
+
+.LINK
+https://github.com/sbourdeaud
+#>
+
     param 
     (
         [string] $module,
@@ -319,7 +344,7 @@ Author: Stephane Bourdeaud
 .PARAMETER module
 Name of PowerShell module to import.
 .EXAMPLE
-PS> LoadModule -module PSWriteHTML
+.\LoadModule -module PSWriteHTML
 #>
 param 
 (
@@ -391,10 +416,12 @@ function Invoke-PrismAPICall
   REST method (POST, GET, DELETE, or PUT)
 .PARAMETER credential
   PSCredential object to use for authentication.
-PARAMETER url
+.PARAMETER url
   URL to the api endpoint.
-PARAMETER payload
+.PARAMETER payload
   JSON payload to send.
+.PARAMETER checking_task_status
+  When specified, console output for this function will be suppressed. Useful when looping while waiting for a task to complete and writing a completion bar to the console.
 .EXAMPLE
 .\Invoke-PrismAPICall -credential $MyCredObject -url https://myprism.local/api/v3/vms/list -method 'POST' -payload $MyPayload
 Makes a POST api call to the specified endpoint with the specified payload.
@@ -478,8 +505,6 @@ end
 #this function is used to upload a file to AHV Prism Image Configuration library
 function Send-FileToPrism
 {
-	#input: username, password, url, method, file
-	#output: REST response
 <#
 .SYNOPSIS
   Uploads a file to AHV Prism Image Configuration library.
@@ -592,9 +617,15 @@ function Get-NTNXTask
 {
 <#
 .SYNOPSIS
-Gets status for a given Prism task uuid (replaces NTNX cmdlet)
+Gets status for a given Prism Element task uuid (replaces NTNX cmdlet).
 .DESCRIPTION
-Gets status for a given Prism task uuid
+Gets status for a given Prism Element task uuid using API v2 endpoint.  This function does not loop until the task is completed.
+.PARAMETER TaskId
+UUID of the task you want to check.
+.PARAMETER credential
+PoSH credential object for Prism access.
+.PARAMETER cluster
+FQDN or IP of the Prism Element cluster against which the task status will be checked.
 #>
     [CmdletBinding()]
     [Alias()]
@@ -632,12 +663,12 @@ Gets status for a given Prism task uuid
 
 Function Get-PrismTaskStatus
 {
-    <#
+<#
 .SYNOPSIS
-Retrieves the status of a given task uuid from Prism and loops until it is completed.
+Retrieves the status of a given task uuid from Prism Element and loops until it is completed.
 
 .DESCRIPTION
-Retrieves the status of a given task uuid from Prism and loops until it is completed.
+Retrieves the status of a given task uuid from Prism Element (using API v2 endpoint) and loops until it is completed.  It will print a completion progress bar to the console.
 
 .PARAMETER Task
 Prism task uuid.
@@ -718,9 +749,9 @@ https://github.com/sbourdeaud
 
 Function Get-PrismCentralTaskStatus
 {
-    <#
+<#
 .SYNOPSIS
-Retrieves the status of a given task uuid from Prism and loops until it is completed.
+Retrieves the status of a given task uuid from Prism Central (using API v3 endpoint) and loops until it is completed.
 
 .DESCRIPTION
 Retrieves the status of a given task uuid from Prism and loops until it is completed.
@@ -808,13 +839,39 @@ https://github.com/sbourdeaud
 }
 
 function Get-PrismCentralObjectList
-{#retrieves multiple pages of Prism REST objects v3
+{#retrieves multiple pages of Prism REST objects v3. This function takes care of pagination for you.
+<#
+.SYNOPSIS
+Retrieves complete list of the specified object using pagination and the v3 API endpoint.  Returns only entities.
+
+.DESCRIPTION
+Retrieves complete list of the specified object using pagination and the v3 API endpoint.  Returns only entities.
+
+.PARAMETER pc
+FQDN or IP for the Prism Central instance from which we are retrieving objects.
+
+.PARAMETER object
+This is the API endpoint for the object type. Exp: vms, clusters, subnets, etc...
+
+.PARAMETER kind
+This is the object type as it would be specified in the payload. Exp: vm, cluster, subnet, etc...
+
+.NOTES
+Author: Stephane Bourdeaud (sbourdeaud@nutanix.com)
+
+.EXAMPLE
+.\Get-PrismCentralObjectList -pc mypc.mydomain.local -object vms -kind vm
+Returns the full list of entities for vms.
+
+.LINK
+https://github.com/sbourdeaud
+#>
     [CmdletBinding()]
     param 
     (
         [Parameter(mandatory = $true)][string] $pc,
-        [Parameter(mandatory = $true)][string] $object,
-        [Parameter(mandatory = $true)][string] $kind
+        [Parameter(mandatory = $true)][string] $object, #this is what you find at the end of the url. For exp: vms
+        [Parameter(mandatory = $true)][string] $kind #this is what you usually put in the payload. For exp: vm
     )
 
     begin 
@@ -887,7 +944,30 @@ function Get-PrismCentralObjectList
 }
 
 function Get-GroupsObjectList
-{#retrieves multiple pages of Prism REST objects using the (undocumented) v3 groups endpoint with the specified attributes
+{#retrieves multiple pages of Prism REST objects (works only for vms in this function) using the (undocumented) v3 groups endpoint with the specified attributes
+<#
+.SYNOPSIS
+Retrieves the specified attributes for vms using the v3 groups endpoint.  This function uses pagination.
+
+.DESCRIPTION
+Retrieves the specified attributes for vms using the v3 groups endpoint.
+
+.PARAMETER prism
+FQDN of IP of the Prism Central instance.
+
+.PARAMETER attributes
+List of attributes you want to retrieve. To find out which attributes are valid for a given object type (vms in this example), from a CVM, run the following command: arithmos_cli list_attributes_and_stats entity_type=vm
+
+.NOTES
+Author: Stephane Bourdeaud (sbourdeaud@nutanix.com)
+
+.EXAMPLE
+.\Get-GroupsObjectList -prism mypc.mydomain.local -attributes "tools_running_status,is_agent_vm,vm_uuid,vm_name"
+Fetches those attributes for all vms.
+
+.LINK
+https://github.com/sbourdeaud
+#>
     [CmdletBinding()]
     param 
     (
@@ -990,8 +1070,6 @@ function Get-GroupsObjectList
 #this function is used to create saved credentials for the current user
 function Set-CustomCredentials 
 {
-#input: path, credname
-	#output: saved credentials file
 <#
 .SYNOPSIS
   Creates a saved credential file using DAPI for the current user on the local machine.
@@ -1093,8 +1171,6 @@ Will prompt for user credentials and create a file called prism-apiuser.txt in c
 #this function is used to retrieve saved credentials for the current user
 function Get-CustomCredentials 
 {
-#input: path, credname
-	#output: credential object
 <#
 .SYNOPSIS
   Retrieves saved credential file using DAPI for the current user on the local machine.
@@ -1214,8 +1290,7 @@ end
 } #end Write-CustomPrompt function
 
 Function Write-Menu
-{
-	
+{	
 <#
 .SYNOPSIS
 	Display custom menu in the PowerShell console.
